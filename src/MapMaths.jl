@@ -114,6 +114,8 @@ function Base.getindex(c::Coordinate{2}, i::Int)
     throw(BoundsError(c, i))
 end
 
+Base.show(io::IO, c::Coordinate{2}) = print(io, typeof(c), "(", c[1], ", ", c[2], ")")
+
 function needs_latitude(A,B)
     for (To,From) in ((A,B), (B,A))
         @eval begin
