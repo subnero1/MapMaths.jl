@@ -1,0 +1,7 @@
+name = "MapMaths"
+uuid = "0922fada-4501-4821-9da5-5833bcb2b8d4"
+authors = ["Simon Etter <ettersi@users.noreply.github.com>"]
+version = "0.1.0"
+
+[deps]
+Elliptic = "b305315f-e792-5b7a-8f41-49f472929428"
