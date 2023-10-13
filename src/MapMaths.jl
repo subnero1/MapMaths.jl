@@ -10,7 +10,7 @@ export
     EastNorth, East, North,
     ECEF, Alt, tdist
 
-abstract type Coordinate{N, T <: Number} end
+abstract type Coordinate{N, T <: Number} <: StaticVector{N, T} end
 
 abstract type EastWestCoordinate{T <: Number} <: Coordinate{1, T} end
 abstract type NorthSouthCoordinate{T <: Number} <: Coordinate{1, T} end
@@ -44,6 +44,9 @@ for (C,D) in (
         $C(c::$D{T}, o::$O) where {T <: Number} = $C{T}(c, o) # Preserve eltype when converting
         $C{T}(c::$D, o::$O) where {T <: Number} = $C{T}($D{T}(c), $O{T}(o)) # Match eltypes
         $C{T}(c::$D{T}, o::$O{T}) where {T <: Number} = $C{T}(_convert($C, c, o)) # Dispatch to _convert
+
+        $C{T}((v,)::NTuple{1, Number}) where {T <: Number} = $C{T}(v)
+        StaticArrays.similar_type(::Type{<:$C}, ::Type{T}, ::Size{(1,)}) where {T <: Number} = $C{T}
     end
 end
 
@@ -76,6 +79,9 @@ for (C,(C1,C2)) in (
         # Standardize coordinate pairs
         $C{T}(c2::supertype($C2), c1::supertype($C1)) where {T <: Number} = $C{T}(c1, c2) # Swap arguments if needed
         $C{T}(c1::supertype($C1), c2::supertype($C2)) where {T <: Number} = $C{T}(supertype($C1){T}(c1), supertype($C2{T})(c2)) # Convert to coordinate type
+
+        $C{T}((v1,v2)::NTuple{2, Number}) where {T <: Number} = $C{T}(v1, v2)
+        StaticArrays.similar_type(::Type{<:$C}, ::Type{T}, ::Size{(2,)}) where {T <: Number} = $C{T}
 
         # Dispatch to convert
         function $C{T}(c1::supertype($C1){T}, c2::supertype($C2){T}) where {T <: Number}
@@ -123,6 +129,9 @@ ECEF{T}(c1::Coordinate{1}, c2::Coordinate{1}) where {T <: Number} = ECEF{T}(c1, 
 ECEF{T}(c1::Coordinate{1}, c2::Coordinate{1}, alt::Alt) where {T <: Number} = ECEF{T}(LonLat{T}(c1, c2), Alt{T}(alt))
 ECEF{T}(c::Coordinate{2}) where {T <: Number} = ECEF{T}(LonLat{T}(c), Alt{T}(0))
 ECEF{T}(c::Coordinate{2}, alt::Alt) where {T <: Number} = ECEF{T}(LonLat{T}(c), Alt{T}(alt))
+
+ECEF{T}((v1,v2,v3)::NTuple{3, Number}) where {T <: Number} = ECEF{T}(v1,v2,v3)
+StaticArrays.similar_type(::Type{<:ECEF}, ::Type{T}, ::Size{(3,)}) where {T <: Number} = ECEF{T}
 
 # Construct from LonLat
 function ECEF{T}((lon, lat)::LonLat{T}, (alt,)::Alt{T}) where {T <: Number}
