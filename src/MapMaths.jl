@@ -284,10 +284,10 @@ end
 # East, North <--> WMX, WMY
 
 needs_latitude(East, WMX)
-_convert(::Type{East}, wmx::WMX, lat::Lat) = _convert(East, _convert(Lon, wmx), lat)
-_convert(::Type{WMX}, east::East, lat::Lat) = _convert(WMX, _convert(Lon, east), lat)
+_convert(::Type{East}, wmx::WMX, lat::Lat) = _convert(East, Lon(wmx, lat), lat)
+_convert(::Type{WMX}, east::East, lat::Lat) = _convert(WMX, Lon(east, lat), lat)
 
-_convert(::Type{North}, wmy::WMY) = _convert(North, _convert(Lat, wmy))
-_convert(::Type{WMY}, north::North) = _convert(WMY, _convert(Lat, north))
+_convert(::Type{North}, wmy::WMY) = _convert(North, Lat(wmy))
+_convert(::Type{WMY}, north::North) = _convert(WMY, Lat(north))
 
 end # module MapMaths
