@@ -204,9 +204,6 @@ function Base.getindex(c::ECEF, i::Int)
     throw(BoundsError(c, i))
 end
 
-StaticArrays.SVector(c::Coordinate{N,T}) where {N, T <: Number} = SVector{N,T}(c)
-StaticArrays.SVector{N,T}(c::Coordinate{N}) where {N, T <: Number} = SVector{3,T}(c...)
-
 Base.show(io::IO, c::Coordinate{2}) = print(io, typeof(c), "(", c[1], ", ", c[2], ")")
 
 function needs_latitude(A,B)
