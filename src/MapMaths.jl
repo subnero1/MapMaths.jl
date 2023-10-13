@@ -24,10 +24,13 @@ for (C,D) in (
             $C{T}(v::Number) where {T <: Number} = new(v) # Remove default constructors
         end
 
+        # Eltype conversion
+        Coordinate{1,T}(c::$C) where {T <: Number} = $C{T}(c.v)
+        $D{T}(c::$C) where {T <: Number} = $C{T}(c.v)
+        $C{T}(c::$C) where {T <: Number} = $C{T}(c.v)
+
         # Construct from number
         $C(v::Number) = $C{float(typeof(v))}(v) # Convert ints to floats by default
-        $C{T}(c::$C) where {T <: Number} = $C{T}(c.v) # Forward eltype conversion to value conversion
-        $D{T}(c::$C) where {T <: Number} = $C{T}(c.v) # Generic eltype conversion
 
         # Construct from single coordinate
         $C(c::$D{T}) where {T <: Number} = $C{T}(c) # Preserve eltype when converting
@@ -53,6 +56,10 @@ for (C,(C1,C2)) in (
             c2::$C2{T}
             $C{T}(c1::$C1{T}, c2::$C2{T}) where {T <: Number} = new(c1, c2) # Remove default constructors
         end
+
+        # Eltype conversion
+        Coordinate{2,T}(c::$C) where {T <: Number} = $C{T}(c...)
+        $C{T}(c::$C) where {T <: Number} = $C{T}(c...)
 
         # Turn numbers into coordinates
         $C(v1::Number, v2::Number) = $C{float(promote_type(typeof(v1),typeof(v2)))}(v1, v2) # Convert ints to floats by default
