@@ -5,6 +5,7 @@ using StaticArrays
 using LinearAlgebra
 
 export
+    Coordinate,
     WebMercator, WMX, WMY,
     LatLon, LonLat, Lat, Lon,
     EastNorth, East, North,
