@@ -83,3 +83,51 @@ Northing denotes the distance one has to travel southward (positive northing) or
 northward (negative northing) to reach the equator.
 """ North
 
+###############################################################################
+
+@doc """
+    ECEF(x,y,z)
+
+Earth-centred earth-fixed coordinates in meters.
+
+Cartesian coordinate system such that `{lon == 0} ⊂ {y == 0}` and `{lat == 0} ⊂
+{z == 0}`.
+
+# Example
+```
+julia> ECEF(LonLat(0,0))
+ECEF{Float64}(6.378137e6, 0.0, 0.0)
+
+julia> ECEF(LonLat(90,0))
+ECEF{Float64}(0.0, 6.378137e6, 0.0)
+
+julia> ECEF(LonLat(0,90))
+ECEF{Float64}(0.0, 0.0, 6.356752314245179e6)
+```
+""" ECEF
+
+@doc """
+    tdist(c1, c2) -> Number
+
+Compute the "tunnel distance" between points `c1` and `c2`.
+
+Tunnel distance is the straight-line distance in Euclidean space, i.e.
+`norm(ECEF(c1) - ECEF(c2))`.
+
+Each of `c1` and `c2` may be any of the following:
+- A pair of north-south and east-west coordinates.
+- A two-dimensional coordinate.
+- Either of the above with an additional altitude.
+
+# Example
+```
+julia> tdist(EastNorth(0,0), EastNorth(3,4))
+5.0000000000001075
+
+julia> tdist(EastNorth(0,0), (EastNorth(3,0), Alt(4)))
+5.0000005648476336
+
+julia> tdist(LatLon(0,0), LatLon(0,180)) # Two times the earth radius
+1.2756274e7
+```
+""" tdist
