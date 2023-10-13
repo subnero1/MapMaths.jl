@@ -49,7 +49,7 @@ Latitude in degrees.
     Lon(lon)
 
 Longitude in degrees.
-""" Lat
+""" Lon
 
 ###############################################################################
 
@@ -81,4 +81,5 @@ Northing in meters.
 
 Northing denotes the distance one has to travel southward (positive northing) or
 northward (negative northing) to reach the equator.
-""" East
+""" North
+
