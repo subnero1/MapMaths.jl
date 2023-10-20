@@ -168,6 +168,7 @@ worry about number type conversions. Instead, all they have to do is provide the
 correct conversion formula.
 """
 _convert(::Type{To}, ::From) where {To, From} = error("No known conversion from $From to $To")
+_convert(::Type{To}, c::To) where {To} = c # Identity conversion
 _convert(::Type{To}, c::Coordinate{1}, ::Coordinate{1}) where {To <: Coordinate{1}} = _convert(To, c) # Drop second coordinate if not needed
 
 # All matching coordinate types are implicitly convertible
