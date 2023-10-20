@@ -90,6 +90,9 @@ for (C,(C1,C2)) in (
                 _convert($C2, c2, c1),
             )
         end
+
+        (::Type{D1})(c::$C) where {D1 <: supertype($C1)} = D1(c.c1, c.c2)
+        (::Type{D2})(c::$C) where {D2 <: supertype($C2)} = D2(c.c2, c.c1)
     end
 end
 
