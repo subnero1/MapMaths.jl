@@ -5,7 +5,7 @@ using StaticArrays
 using LinearAlgebra
 
 export
-    Coordinate,
+    Coordinate, EastWestCoordinate, NorthSouthCoordinate,
     WebMercator, WMX, WMY,
     LatLon, LonLat, Lat, Lon,
     EastNorth, East, North,
@@ -178,6 +178,13 @@ Base.convert(::Type{C}, c::EastWestCoordinate) where {C <: EastWestCoordinate} =
 Base.convert(::Type{C}, c::NorthSouthCoordinate) where {C <: NorthSouthCoordinate} = C(c)
 Base.convert(::Type{C}, c::Coordinate{2}) where {C <: Coordinate{2}} = C(c)
 
+EastWestCoordinate(c::EastWestCoordinate) = c
+EastWestCoordinate(c::EastWestCoordinate, ::NorthSouthCoordinate) = c
+EastWestCoordinate(::NorthSouthCoordinate, c::EastWestCoordinate) = c
+NorthSouthCoordinate(c::NorthSouthCoordinate) = c
+NorthSouthCoordinate(c::NorthSouthCoordinate, ::EastWestCoordinate) = c
+NorthSouthCoordinate(::EastWestCoordinate, c::NorthSouthCoordinate) = c
+
 Base.eltype(::Type{<:Coordinate{N, T}}) where {N, T <: Number} = T
 
 Base.length(::Coordinate{N}) where N = N
@@ -289,6 +296,17 @@ function bisect(f, a, b)
         end
     end
     return a
+end
+
+for op in (:+, :-)
+    @eval begin
+        function Base.$op(c::Coordinate{2,T}, d::EastNorth{T}) where {T <: Number}
+            typeof(c)(
+                EastWestCoordinate(c) + typeof(EastWestCoordinate(c))(East(d), Lat(c)),
+                typeof(NorthSouthCoordinate(c))(North(c) + North(d)),
+            )
+        end
+    end
 end
 
 
