@@ -11,7 +11,7 @@ export
     EastNorth, East, North,
     ECEF, Alt, tdist
 
-abstract type Coordinate{N, T <: Number} <: StaticVector{N, T} end
+abstract type Coordinate{N, T <: Number} end
 (::Type{C})(v::NTuple{N, Number}) where {N, C <: Coordinate{N}} = C(v...)
 
 abstract type EastWestCoordinate{T <: Number} <: Coordinate{1, T} end
@@ -46,8 +46,6 @@ for (C,D) in (
         $C(c::$D{T}, o::$O) where {T <: Number} = $C{T}(c, o) # Preserve eltype when converting
         $C{T}(c::$D, o::$O) where {T <: Number} = $C{T}($D{T}(c), $O{T}(o)) # Match eltypes
         $C{T}(c::$D{T}, o::$O{T}) where {T <: Number} = $C{T}(_convert($C, c, o)) # Dispatch to _convert
-
-        StaticArrays.similar_type(::Type{<:$C}, ::Type{T}, ::Size{(1,)}) where {T <: Number} = $C{T}
     end
 end
 
@@ -91,6 +89,7 @@ for (C,(C1,C2)) in (
             )
         end
 
+        # Extract one-dimensional coordinates
         (::Type{D1})(c::$C) where {D1 <: supertype($C1)} = D1(c.c1, c.c2)
         (::Type{D2})(c::$C) where {D2 <: supertype($C2)} = D2(c.c2, c.c1)
     end
@@ -207,6 +206,17 @@ function Base.getindex(c::ECEF, i::Int)
 end
 
 Base.show(io::IO, c::Coordinate{2}) = print(io, typeof(c), "(", c[1], ", ", c[2], ")")
+
+# Arithmetic
+Base.promote_rule(::Type{<:Coordinate{N,T1}}, ::Type{<:Coordinate{N,T2}}) where {N, T1 <: Number, T2 <: Number} = Coordinate{N,promote_type(T1, T2)}
+for op in (:+, :-)
+    @eval begin
+        Base.$op(c1::Coordinate{N}, c2::Coordinate{N}) where {N} = $op(promote(c1, c2)...)
+        Base.$op(c1::Coordinate{N,T}, c2::Coordinate{N,T}) where {N,T <: Number} = throw(MethodError($op, (c1, c2)))
+        Base.$op(c1::C, c2::C) where {C <: Coordinate} = C(map($op, c1[], c2[]))
+        Base.$op(c::C) where {C <: Coordinate} = C(map($op, c[]))
+    end
+end
 
 function needs_latitude(A,B)
     for (To,From) in ((A,B), (B,A))
