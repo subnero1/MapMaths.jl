@@ -79,8 +79,6 @@ for (C,(C1,C2)) in (
         $C{T}(c2::supertype($C2), c1::supertype($C1)) where {T <: Number} = $C{T}(c1, c2) # Swap arguments if needed
         $C{T}(c1::supertype($C1), c2::supertype($C2)) where {T <: Number} = $C{T}(supertype($C1){T}(c1), supertype($C2{T})(c2)) # Convert to coordinate type
 
-        StaticArrays.similar_type(::Type{<:$C}, ::Type{T}, ::Size{(2,)}) where {T <: Number} = $C{T}
-
         # Dispatch to convert
         function $C{T}(c1::supertype($C1){T}, c2::supertype($C2){T}) where {T <: Number}
             return $C{T}(
@@ -131,8 +129,6 @@ ECEF{T}(c1::Coordinate{1}, c2::Coordinate{1}) where {T <: Number} = ECEF{T}(c1, 
 ECEF{T}(c1::Coordinate{1}, c2::Coordinate{1}, alt::Alt) where {T <: Number} = ECEF{T}(LonLat{T}(c1, c2), Alt{T}(alt))
 ECEF{T}(c::Coordinate{2}) where {T <: Number} = ECEF{T}(LonLat{T}(c), Alt{T}(0))
 ECEF{T}(c::Coordinate{2}, alt::Alt) where {T <: Number} = ECEF{T}(LonLat{T}(c), Alt{T}(alt))
-
-StaticArrays.similar_type(::Type{<:ECEF}, ::Type{T}, ::Size{(3,)}) where {T <: Number} = ECEF{T}
 
 # Construct from LonLat
 function ECEF{T}((lon, lat)::LonLat{T}, (alt,)::Alt{T}) where {T <: Number}
