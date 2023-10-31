@@ -13,6 +13,7 @@ export
 
 abstract type Coordinate{N, T <: Number} end
 (::Type{C})(v::NTuple{N, Number}) where {N, C <: Coordinate{N}} = C(v...)
+(::Type{C})(v::AbstractVector{<:Number}) where {C <: Coordinate} = C(v...)
 
 abstract type EastWestCoordinate{T <: Number} <: Coordinate{1, T} end
 abstract type NorthSouthCoordinate{T <: Number} <: Coordinate{1, T} end
