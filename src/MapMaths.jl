@@ -23,7 +23,6 @@ for (C,D) in (
     (:Lon, :EastWestCoordinate), (:Lat, :NorthSouthCoordinate),
     (:East, :EastWestCoordinate), (:North, :NorthSouthCoordinate),
 )
-    O = if D == :EastWestCoordinate; :NorthSouthCoordinate else :EastWestCoordinate end
     @eval begin
         struct $C{T <: Number} <: $D{T}
             v::T
@@ -44,9 +43,9 @@ for (C,D) in (
         $C{T}(c::$D{T}) where {T <: Number} = $C{T}(_convert($C, c)) # Dispatch to _convert
 
         # Construct from coordinate pair
-        $C(c::$D{T}, o::$O) where {T <: Number} = $C{T}(c, o) # Preserve eltype when converting
-        $C{T}(c::$D, o::$O) where {T <: Number} = $C{T}($D{T}(c), $O{T}(o)) # Match eltypes
-        $C{T}(c::$D{T}, o::$O{T}) where {T <: Number} = $C{T}(_convert($C, c, o)) # Dispatch to _convert
+        $C(c::$D{T}, o::Coordinate{1}) where {T <: Number} = $C{T}(c, o) # Preserve eltype when converting
+        $C{T}(c::$D, o::Coordinate{1}) where {T <: Number} = $C{T}($D{T}(c), Coordinate{1,T}(o)) # Match eltypes
+        $C{T}(c::$D{T}, o::Coordinate{1,T}) where {T <: Number} = $C{T}(_convert($C, c, o)) # Dispatch to _convert
     end
 end
 
@@ -168,7 +167,10 @@ correct conversion formula.
 """
 _convert(::Type{To}, ::From) where {To, From} = error("No known conversion from $From to $To")
 _convert(::Type{To}, c::To) where {To} = c # Identity conversion
-_convert(::Type{To}, c::Coordinate{1}, ::Coordinate{1}) where {To <: Coordinate{1}} = _convert(To, c) # Drop second coordinate if not needed
+_convert(::Type{To}, c::EastWestCoordinate, ::NorthSouthCoordinate) where {To <: EastWestCoordinate} = _convert(To, c) # Drop north south coordinate if not needed
+_convert(::Type{To}, c::NorthSouthCoordinate, ::EastWestCoordinate) where {To <: NorthSouthCoordinate} = _convert(To, c) # Drop east west coordinate if not needed
+_convert(::Type{To}, c2::From, origin::NorthSouthCoordinate) where {To <: NorthSouthCoordinate, From <: NorthSouthCoordinate} =
+    _convert(To, Lat(origin) + Lat(c2)) - _convert(To, origin)
 
 # All matching coordinate types are implicitly convertible
 Base.convert(::Type{C}, c::EastWestCoordinate) where {C <: EastWestCoordinate} = C(c)
