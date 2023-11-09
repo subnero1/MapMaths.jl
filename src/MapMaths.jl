@@ -169,8 +169,8 @@ _convert(::Type{To}, ::From) where {To, From} = error("No known conversion from 
 _convert(::Type{To}, c::To) where {To} = c # Identity conversion
 _convert(::Type{To}, c::EastWestCoordinate, ::NorthSouthCoordinate) where {To <: EastWestCoordinate} = _convert(To, c) # Drop north south coordinate if not needed
 _convert(::Type{To}, c::NorthSouthCoordinate, ::EastWestCoordinate) where {To <: NorthSouthCoordinate} = _convert(To, c) # Drop east west coordinate if not needed
-_convert(::Type{To}, c2::From, origin::NorthSouthCoordinate) where {To <: NorthSouthCoordinate, From <: NorthSouthCoordinate} =
-    _convert(To, Lat(origin) + Lat(c2)) - _convert(To, origin)
+_convert(::Type{To}, c::From, origin::NorthSouthCoordinate) where {To <: NorthSouthCoordinate, From <: NorthSouthCoordinate} =
+    _convert(To, From(origin) + c) - _convert(To, origin)
 
 # All matching coordinate types are implicitly convertible
 Base.convert(::Type{C}, c::Coordinate{N}) where {N, C <: Coordinate{N}} = C(c)
