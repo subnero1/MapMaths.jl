@@ -173,9 +173,7 @@ _convert(::Type{To}, c2::From, origin::NorthSouthCoordinate) where {To <: NorthS
     _convert(To, Lat(origin) + Lat(c2)) - _convert(To, origin)
 
 # All matching coordinate types are implicitly convertible
-Base.convert(::Type{C}, c::EastWestCoordinate) where {C <: EastWestCoordinate} = C(c)
-Base.convert(::Type{C}, c::NorthSouthCoordinate) where {C <: NorthSouthCoordinate} = C(c)
-Base.convert(::Type{C}, c::Coordinate{2}) where {C <: Coordinate{2}} = C(c)
+Base.convert(::Type{C}, c::Coordinate{N}) where {N, C <: Coordinate{N}} = C(c)
 
 EastWestCoordinate(c::EastWestCoordinate) = c
 EastWestCoordinate(c::EastWestCoordinate, ::NorthSouthCoordinate) = c
