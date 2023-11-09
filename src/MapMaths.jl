@@ -227,7 +227,7 @@ end
 function needs_latitude(A,B)
     for (To,From) in ((A,B), (B,A))
         @eval begin
-            _convert(::Type{$To}, ::$From) = error("Cannot convert from $($From) to $($To) without knowing the latitude. Call `$($From)(::$($To), ::NorthSouthCoordinate)` instead.")
+            _convert(::Type{$To}, ::$From) = error("Cannot convert from $($From) to $($To) without knowing the latitude. Call $($From)(::$($To), ::NorthSouthCoordinate) instead.")
             _convert(::Type{$To}, from::$From, ns::NorthSouthCoordinate) = _convert($To, from, Lat(ns))
         end
     end
