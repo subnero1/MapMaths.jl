@@ -6,21 +6,21 @@ Utility tools for working with various planetary coordinate systems.
 
 - Convert latitude and longitude to WebMercator coordinates.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> WebMercator(LatLon(1.3, 103.8))
   WebMercator{Float64}(0.5766666666666667, 0.007222841972793043)
   ```
 
 - Move a latitude / longitude coordinate  1 km east and 0.5 km north.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> LatLon(1.3, 103.8) + EastNorth(1000, 500)
   LatLon{Float64}(1.3045218239325143, 103.80898545013565)
   ```
 
 - How non-conformal are the WebMercator coordinates at various latitudes?
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> lats = [0, 30, 60]
          ratios = [
              WMX(East(1), Lat(lat))[] / WMY(North(1), Lat(lat))[]
@@ -60,10 +60,12 @@ Utility tools for working with various planetary coordinate systems.
 - `WMY{T} <: NorthSouthCoordinate{T}`: y-component of WebMercator coordinates.
 
 WebMercator coordinates are shifted and scaled such that we have the following identities.
-```jldoctest
-WebMercator(LonLat( 0, 0 ))[] == (0, 0)
-WMX(Lon(180))[] == +1
-wMY(Lat(90))[] == +Inf
+```jldoctest MapMaths
+julia> @assert WebMercator(LonLat( 0, 0 ))[] == (0, 0)
+
+julia> @assert WMX(Lon(180))[] == +1
+
+julia> @assert WMY(Lat(90))[] == +Inf
 ```
 
 ##### Easting / northing coordinate types
@@ -74,7 +76,7 @@ wMY(Lat(90))[] == +Inf
 
 Example:
 
-```jldoctest
+```jldoctest MapMaths
 julia> EastNorth(LatLon(0,90))
 EastNorth{Float64}(1.0018754171394622e7, 0.0)
 
@@ -96,7 +98,7 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - Any reasonable coordinate conversion can be performed using the constructor of the target coordinate type.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> WebMercator(LatLon(0, 45)) # Convert surface coordinates
   WebMercator{Float64}(0.25, 0.0)
 
@@ -111,10 +113,9 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - Converting east-west coordinates sometimes requires latitude information.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> East(Lon(45))
-  ERROR: Cannot convert from Lon to East without knowing the latitude.
-  Call Lon(::East, ::NorthSouthCoordinate) instead.
+  ERROR: Cannot convert from Lon to East without knowing the latitude. Call Lon(::East, ::NorthSouthCoordinate) instead.
 
   julia> East(Lon(45), Lat(0))
   East{Float64}(5.009377085697311e6)
@@ -129,7 +130,7 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
   Example: One degree latitude is about 110.5 km at the equator, but 111.7 km at the poles.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> North(Lat(1), Lat(0))
   North{Float64}(110574.38855779877)
 
@@ -139,7 +140,7 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - Conversion to `ECEF` takes an optional altitude argument.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> ECEF(LatLon(0, 90))  # Altitude defaults to 0
   ECEF{Float64}(0.0, 6.378137e6, 0.0)
 
@@ -151,7 +152,7 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - `tdist(x,y) = norm(SVector(ECEF(x) - ECEF(y)))` computes the straight-line distance between two points. The `t` in `tdist()` stands for "tunnel" since traveling along the path measured by `tdist()` typically requires tunneling through the earth. Like `ECEF()`, `tdist()` accepts an optional altitude which defaults to 0.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> tdist(EastNorth(0,0), EastNorth(3,0))  # Both altitudes default to 0
   2.9999999999999725
 
@@ -168,21 +169,21 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - Coordinates of the same coordinate type can be added and subtracted, and these operations are performed element-wise. Eltypes will be promoted to a common type as usual.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> LatLon{Int}(1,2) - LatLon(2,1)
-  Lon{Float64}(-1.0, 1.0)
+  LatLon{Float64}(-1.0, 1.0)
   ```
 
 - Coordinates of different coordinate types generally cannot be added and subtracted.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> Lon(1) - WMX(0.5)
   ERROR: MethodError: no method matching -(::Lon{Float64}, ::WMX{Float64})
   ```
 
 - The one exception to this rule is that you can add and subtract `EastNorth` to / from any `Coordinate{2}`. The `EastNorth` coordinate is then interpreted as a translation of the other coordinate.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> LatLon(1,2) + EastNorth(3,4)
   LatLon{Float64}(1.0000361746684363, 2.0000269535362025)
   ```
@@ -191,7 +192,7 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - Construct `X <: Coordinate{N}` from `Vararg{Number, N}` or `NTuple{N, Number}`.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> LatLon(1,2)
   LatLon{Float64}(1.0, 2.0)
 
@@ -201,7 +202,7 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - Convert to number / tuple of numbers using `getindex()`.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> Lat(1)[]
   1.0
 
@@ -211,7 +212,7 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - Unpack using `iterate()`.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> (lat,) = Lat(1); @show lat;
   lat = 1.0
 
@@ -228,7 +229,7 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
 - Convert `x::X{T1}` to `X{T2}` using `SX{T2}(x)` for any supertype `SX` of `X`.
 
-  ```jldoctest
+  ```jldoctest MapMaths
   julia> x = WMX(1)
   WMX{Float64}(1.0)
 
