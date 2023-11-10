@@ -1,100 +1,109 @@
 @doc """
-    WebMercator(wmx, wmy)
+    abstract type Coordinate{N, T <: Number}
 
-Web Mercator coordinates, shifted and scaled such that we have the following
+`N`-dimensional coordinate with eltype `T`.
+""" Coordinate
+
+@doc """
+    abstract type EastWestCoordinate{T} <: Coordinate{1, T}
+
+One-dimensional coordinate in east-west direction.
+""" EastWestCoordinate
+
+@doc """
+    abstract type NorthSouthCoordinate{T} <: Coordinate{1, T}
+
+One-dimensional coordinate in north-south direction.
+""" NorthSouthCoordinate
+
+###############################################################################
+
+@doc """
+    WebMercator{T} <: Coordinate{2,T}
+
+WebMercator coordinates, shifted and scaled such that we have the following
 identities.
 
-```
-WebMercator(LonLat( 0, 0 ))[] == (0, 0)
-WMX(Lon(180))[] == 1
-WMX(Lon(-180))[] == -1
-wMY(Lat(90))[] == Inf
-wMY(Lat(-90))[] == -Inf
+```jldoctest; output = false
+julia> @assert WebMercator(LonLat( 0, 0 ))[] == (0, 0)
+
+julia> @assert WMX(Lon(180))[] == +1
+
+julia> @assert WMY(Lat(90))[] == +Inf
 ```
 """ WebMercator
 
 @doc """
-    WMX(wmx)
+    WMX{T} <: EastWestCoordinate{T}
 
-East-west component of [`WebMercator`](@ref) coordinates.
+x-component of [`WebMercator`](@ref) coordinates.
 """ WMX
 
 @doc """
-    WMY(wmy)
+    WMY{T} <: NorthSouthCoordinate{T}
 
-North-south component of [`WebMercator`](@ref) coordinates.
+y-component of [`WebMercator`](@ref) coordinates.
 """ WMY
 
 ###############################################################################
 
 @doc """
-    LatLon(lat, lon)
+    LatLon{T} <: Coordinate{2,T}
 
-Latitude and longitude in degrees.
+Geodetic latitude and longitude in degrees.
 """ LatLon
 
 @doc """
-    LonLat(lon, lat)
+    LonLat{T} <: Coordinate{2,T}
 
-Longitude and latitude in degrees.
+Geodetic longitude and latitude in degrees.
 """ LonLat
 
 @doc """
-    Lat(lat)
+    Lat{T} <: NorthSouthCoordinate{T}
 
-Latitude in degrees.
+Geodetic latitude in degrees.
 """ Lat
 
 @doc """
-    Lon(lon)
+    Lon{T} <: EastWestCoordinate{T}
 
-Longitude in degrees.
+Geodetic longitude in degrees.
 """ Lon
 
 ###############################################################################
 
 @doc """
-    EastNorth(east, north)
+    EastNorth{T} <: Coordinate{2,T}
 
 Easting and northing in meters.
 
-Easting denotes the distance one has to travel westward (positive easting) or
-eastward (negative easting) to reach zero degree longitude.
-
-Northing denotes the distance one has to travel southward (positive northing) or
-northward (negative northing) to reach the equator.
+ - Easting denotes the signed distance (in meters) to the prime meridian.
+ - Northing denotes the signed distance (in meters) to the equator.
 """ EastNorth
 
 @doc """
-    East(east)
+    East{T} <: EastWestCoordinate{T}
 
-Easting in meters.
-
-Easting denotes the distance one has to travel westward (positive easting) or
-eastward (negative easting) to reach zero degree longitude.
+Easting, i.e. signed distance (in meters) to the prime meridian.
 """ East
 
 @doc """
-    North(north)
+    North{T} <: NorthSouthCoordinate{T}
 
-Northing in meters.
-
-Northing denotes the distance one has to travel southward (positive northing) or
-northward (negative northing) to reach the equator.
+Northing, i.e. signed distance (in meters) to the equator.
 """ North
 
 ###############################################################################
 
 @doc """
-    ECEF(x,y,z)
+    ECEF{T} <: Coordinate{3}
 
 Earth-centred earth-fixed coordinates in meters.
 
-Cartesian coordinate system such that `{lon == 0} ⊂ {y == 0}` and `{lat == 0} ⊂
-{z == 0}`.
-
 # Example
-```
+
+```jldoctest
 julia> ECEF(LonLat(0,0))
 ECEF{Float64}(6.378137e6, 0.0, 0.0)
 
@@ -107,27 +116,28 @@ ECEF{Float64}(0.0, 0.0, 6.356752314245179e6)
 """ ECEF
 
 @doc """
-    tdist(c1, c2) -> Number
+    tdist(a,b) -> Number
 
-Compute the "tunnel distance" between points `c1` and `c2`.
+Compute the "tunnel distance" between points `a` and `b`.
 
 Tunnel distance is the straight-line distance in Euclidean space, i.e.
-`norm(ECEF(c1) - ECEF(c2))`.
+`norm(ECEF(a) - ECEF(b))`.
 
-Each of `c1` and `c2` may be any of the following:
+Each of `a` and `b` may be any of the following:
 - A pair of north-south and east-west coordinates.
 - A two-dimensional coordinate.
 - Either of the above with an additional altitude.
 
 # Example
-```
+
+```jldoctest
 julia> tdist(EastNorth(0,0), EastNorth(3,4))
 5.0000000000001075
 
 julia> tdist(EastNorth(0,0), (EastNorth(3,0), Alt(4)))
 5.0000005648476336
 
-julia> tdist(LatLon(0,0), LatLon(0,180)) # Two times the earth radius
-1.2756274e7
+julia> tdist(EastNorth(0,0), (East(3), North(0), Alt(4)))
+5.0000005648476336
 ```
 """ tdist
