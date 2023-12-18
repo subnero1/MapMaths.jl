@@ -166,7 +166,7 @@ worry about number type conversions. Instead, all they have to do is provide the
 correct conversion formula.
 """
 _convert(::Type{To}, ::From) where {To, From} = error("No known conversion from $From to $To")
-_convert(::Type{To}, c::To) where {To} = c # Identity conversion
+_convert(::Type{To}, c::To) where {To} = c[] # Identity conversion
 _convert(::Type{To}, c::EastWestCoordinate, ::NorthSouthCoordinate) where {To <: EastWestCoordinate} = _convert(To, c) # Drop north south coordinate if not needed
 _convert(::Type{To}, c::NorthSouthCoordinate, ::EastWestCoordinate) where {To <: NorthSouthCoordinate} = _convert(To, c) # Drop east west coordinate if not needed
 _convert(::Type{To}, c::From, origin::NorthSouthCoordinate) where {To <: NorthSouthCoordinate, From <: NorthSouthCoordinate} =
