@@ -90,6 +90,12 @@ for (C,(C1,C2)) in (
         # Extract one-dimensional coordinates
         (::Type{D1})(c::$C) where {D1 <: supertype($C1)} = D1(c.c1, c.c2)
         (::Type{D2})(c::$C) where {D2 <: supertype($C2)} = D2(c.c2, c.c1)
+
+        # Extract one-dimensional coordinate types
+        (::Type{supertype($C1)})(::Type{<:$C}) = $C1
+        (::Type{supertype($C2)})(::Type{<:$C}) = $C2
+        (::Type{supertype($C1{T})})(::Type{<:$C}) where {T <: Number}= $C1{T}
+        (::Type{supertype($C2{T})})(::Type{<:$C}) where {T <: Number}= $C2{T}
     end
 end
 
