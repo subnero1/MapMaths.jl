@@ -180,6 +180,7 @@ _convert(::Type{To}, c::From, origin::NorthSouthCoordinate) where {To <: NorthSo
 
 # All matching coordinate types are implicitly convertible
 Base.convert(::Type{C}, c::Coordinate{N}) where {N, C <: Coordinate{N}} = C(c)
+Base.convert(::Type{C}, c::NTuple{N, Number}) where {N, C <: Coordinate{N}} = C(c)
 
 EastWestCoordinate(c::EastWestCoordinate) = c
 EastWestCoordinate(c::EastWestCoordinate, ::NorthSouthCoordinate) = c
