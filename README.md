@@ -250,9 +250,9 @@ MapMaths serves a purpose which is very similar to that of [Geodesy.jl](https://
 
 ##### Pro Geodesy
 
-- Geodesy supports several geodetic datums. MapMaths currently supports only the WGS84 datum.
+- Geodesy allows the user to choose from several geodetic datums. MapMaths currently supports only the WGS84 datum.
 
-- Geodesy supports UTM(Z) coordinates. MapMaths does not.
+- Geodesy provides UTM(Z) coordinates. MapMaths does not.
 
 - Geodesy is much older, more stable and has a much larger number of contributors.
 
