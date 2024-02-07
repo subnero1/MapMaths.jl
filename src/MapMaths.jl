@@ -263,6 +263,7 @@ const b = a * (1-f)
 const e2 = (2 - f) / inv_f
 
 function N(lat)
+    # https://en.wikipedia.org/wiki/Earth_radius#Prime_vertical
     s,c = sincosd(lat)
     return a^2/sqrt((a*c)^2 + (b*s)^2)
 end
@@ -275,6 +276,7 @@ _convert(::Type{East}, (lon,)::Lon, (lat,)::Lat) = π*ror_from_lat(lat)*lon / 18
 
 function _convert(::Type{North}, (lat,)::Lat)
     @assert abs(lat) <= 90
+    # https://en.wikipedia.org/wiki/Meridian_arc#Calculation
     return a * (1-f)^2 * Elliptic.Pi(e2, lat*π/180, e2)
 end
 
