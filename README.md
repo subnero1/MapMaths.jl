@@ -350,3 +350,8 @@ MapMaths serves a purpose which is very similar to that of [Geodesy.jl](https://
   julia> LatLon(0,0) + EastNorth(1e7,0)  # Roughly a quarter around the earth
   LatLon{Float64}(-1.43e-322, 89.83152841195214)
   ```
+
+  ## Alternative packages
+
+  This package inspired the design of [CoordRefSystems.jl](https://github.com/JuliaEarth/CoordRefSystems.jl),
+  which is a robust Julia implementation with support for different datum, units, and other powerful transformations.
