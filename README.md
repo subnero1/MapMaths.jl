@@ -36,6 +36,22 @@ Utility tools for working with various planetary coordinate systems.
   └──────────┴─────────────┘
   ```
 
+## Alternatives
+
+There are two other Julia package which address similar needs as this one, namely [CoordRefSystems](https://github.com/JuliaEarth/CoordRefSystems.jl) and [Geodesy](https://github.com/JuliaGeo/Geodesy.jl). The below table attempts to summarise the key differences between them.
+
+| | MapMaths | [CoordRefSystems](https://github.com/JuliaEarth/CoordRefSystems.jl) | [Geodesy](https://github.com/JuliaGeo/Geodesy.jl) |
+|:-:|:-:|:-:|:-:|
+| **Ease of use** | ✅ | ✅ | Awkward syntax for coordinate conversions. <br> Doesn't automatically promote ints to floats. |
+| **Global coordinate types** | LatLon, WebMercator, ECEF | Too many to list them all. | LatLon, ECEF, UTM |
+| **Local coordinates** | Curved (tangential is WIP) | :x: | Tangential (ENU) |
+| **Datum support** | WGS84 only | Many | Many |
+| **Unitful** | :x: | :white_check_mark: | :x: |
+| **Reference package** | :x: | [PROJ](https://github.com/OSGeo/PROJ) | [GeographicLib](http://geographiclib.sourceforge.net/) |
+
+We hope that eventually these three packages can evolve into a single one that is best at everything. Until then, we recommend [CoordRefSystems](https://github.com/JuliaEarth/CoordRefSystems.jl) as the default choice due to its professional maintenance and long feature list, but we also warmly invite you to keep an eye on this package as a testbed for highly powerful and flexible coordinate arithmetic.
+
+
 ## API
 
 ### Types
@@ -241,112 +257,4 @@ EastNorth{Float64}(0.0, 1.0001965729312724e7)
 
   julia> Coordinate{1, Float32}(x)
   WMX{Float32}(1.0f0)
-  ```
-
-
-## MapMaths vs Geodesy
-
-MapMaths serves a purpose which is very similar to that of [Geodesy.jl](https://github.com/JuliaGeo/Geodesy.jl). We hope that at some point in the future the two packages could merge into a single "coordinate maths for Julia" package, but in the meantime the two packages differ in various aspects, and you may prefer to use one or the other depending on your application.
-
-##### Pro Geodesy
-
-- Geodesy allows the user to choose from several geodetic datums. MapMaths currently supports only the WGS84 datum.
-
-- Geodesy provides UTM(Z) coordinates. MapMaths does not.
-
-- Geodesy is much older, more stable and has a much larger number of contributors.
-
-##### Pro MapMaths
-
-- MapMaths has first-class support for WebMercator coordinates, i.e. working with WebMercator coordinates is as convenient as working with any other coordinate type when using MapMaths. In fact, making it easier to work with WebMercator coordinates was the primary motivation for creating this package.
-
-  ```jldoctest
-  julia> using Geodesy
-
-  julia> ECEF(LLA(0,0), wgs84) # <- Convenient
-  ECEF(6.378137e6, 0.0, 0.0)
-
-  julia> ECEF(LLAfromWebMercator(wgs84)([0,0,0]), wgs84) # <- Clumsy
-  ECEF(6.378137e6, 0.0, 0.0)
-  ```
-  ```jldoctest
-  julia> using MapMaths
-
-  julia> ECEF(LatLon(0,0)) # <- Convenient
-  ECEF{Float64}(6.378137e6, 0.0, 0.0)
-
-  julia> ECEF(WebMercator(0,0)) # <- Also convenient
-  ECEF{Float64}(6.378137e6, 0.0, 0.0)
-  ```
-
-- MapMaths defaults to floating-point numbers for better type-stability, and eltype conversions "just work".
-
-  ```jldoctest
-  julia> using MapMaths
-
-  julia> LatLon(0,0)  # Ints are converted to floats unless you explicitly request otherwise
-  LatLon{Float64}(0.0, 0.0)
-
-  julia> LatLon{Float64}[ LatLon{Int}(0,0) ]  # Even when you request ints, you can easily
-                                              # convert to floats later
-  1-element Vector{LatLon{Float64}}:
-   LatLon{Float64}(0.0, 0.0)
-  ```
-  ```jldoctest
-  julia> using Geodesy
-
-  julia> LatLon{Float64}[ LatLon(0,0) ]  # Geodesy neither defaults to floats nor supports
-                                         # implicit eltype conversion
-  ERROR: MethodError: Cannot `convert` an object of type
-    LatLon{Int64} to an object of type
-    LatLon{Float64}
-  ```
-
-- MapMaths allows you do to a large number of coordinate conversion by basically just throwing all the required information at it.
-
-  ```jldoctest
-  julia> using MapMaths
-
-  julia> ECEF(LatLon(0, 90))  # Altitude defaults to 0...
-  ECEF{Float64}(0.0, 6.378137e6, 0.0)
-
-  julia> ECEF(LatLon(0, 90), Alt(1))  # ... but can be provided explicitly when desired.
-  ECEF{Float64}(0.0, 6.378138e6, 0.0)
-
-  julia> ECEF(LonLat(90, 0))  # We can also swap latitude and longitude ...
-  ECEF{Float64}(0.0, 6.378137e6, 0.0)
-
-  julia> ECEF(Lon(90), Lat(0))  # ... provide them separately, ...
-  ECEF{Float64}(0.0, 6.378137e6, 0.0)
-
-  julia> ECEF(WebMercator(0.5, 0))  # ... or pass WebMercator coordinates instead.
-  ECEF{Float64}(0.0, 6.378137e6, 0.0)
-  ```
-
-  Doing similar conversions in Geodesy can be quite tedious.
-
-  ```jldoctest
-  julia> using Geodesy
-
-  julia> c = LatLon(0, 90)  # Location provided from somewhere else
-         ECEF(LLA(c.lat, c.lon, 0), wgs84)  # Extra typing, and only works for c::Union{LatLon, LLA}
-  ECEF(0.0, 6.378137e6, 0.0)
-  ```
-
-##### Other differences
-
-- The local coordinate type in Geodesy (`ENU`) implements a Cartesian coordinate system tangential to the earth's surface. In contrast, the local coordinate  type in MapMaths (`EastNorth`) wraps around the earth.
-
-  ```jldoctest
-  julia> using Geodesy
-
-  julia> LLA(ENU(1e7,0,0), LLA{Float64}(0,0,0), wgs84)  # Somewhere far out in space
-  LLA(lat=0.0°, lon=57.46971133427902°, alt=5.482749627515203e6)
-  ```
-
-  ```jldoctest
-  julia> using MapMaths
-
-  julia> LatLon(0,0) + EastNorth(1e7,0)  # Roughly a quarter around the earth
-  LatLon{Float64}(-1.43e-322, 89.83152841195214)
   ```
