@@ -3,6 +3,15 @@ module MapMaths
 export numtype,
     promote_numtype,
     default_numtype,
+    SemiMajorAxis,
+    SemiMinorAxis,
+    Flattening,
+    InverseFlattening,
+    SquaredEccentricity,
+    Eccentricity,
+    Datum,
+    Coordinate,
+    Wgs84,
     SpaceCoordinate,
     SurfaceCoordinate,
     EastCoordinate,
@@ -23,63 +32,37 @@ export numtype,
 
 using StaticArrays
 
-flatten() = ()
-flatten(x, y...) = (x, flatten(y...)...)
-flatten(x::Tuple, y...) = (flatten(x...)..., flatten(y...)...)
+include("utils.jl")
+include("ellipses.jl")
 
-permutations(a) = ((a,))
-permutations(a, b) = ((a, b), (b, a))
-permutations(a, b, c) = ((a, b, c), (a, c, b), (b, a, c), (b, c, a), (c, a, b), (c, b, a))
-
-numtype(x) = numtype(typeof(x))
-numtype(T::Type) = throw(MethodError(numtype, (T,)))
-numtype(T::Type{<:Number}) = T
-numtype(T::Type{<:NTuple{<:Any, Number}}) = promote_numtype(fieldtypes(T)...)
-
-promote_numtype(args...) = promote_type(numtype.(args)...)
-default_numtype(args...) = float(promote_numtype(args...))
-
-abstract type Combineable end
-struct TempCombo{T <: Tuple} <: Combineable
-    parts::T
-end
-Base.:|(parts::Vararg{Combineable}) = TempCombo(parts)
-Base.:|(combo::TempCombo, part::Combineable) = |(combo.parts..., part)
-Base.show(io::IO, combo::TempCombo) = join(io, combo.parts, " | ")
-
-macro symmetric(fun_def)
-    @assert fun_def.head in (:function, :(=))
-    @assert fun_def.args[1].head == :call
-    name = fun_def.args[1].args[1]
-    args = fun_def.args[1].args[2:end]
-    return esc(
-        quote
-            $fun_def
-            $(
-                map(
-                    permuted_args -> begin
-                        if all(permuted_args .== args)
-                            return nothing
-                        end
-                        return :($name($(permuted_args...)) = $name($(args...)))
-                    end,
-                    permutations(args...),
-                )...
-            )
-        end,
-    )
-    return nothing
-end
+abstract type Geoid <: Combineable end
+abstract type Georeference <: Combineable end
 
 abstract type Coordinate <: Combineable end
 Base.length(c::Coordinate) = length(typeof(c))
 Base.iterate(c::Coordinate, state...) = iterate(Tuple(c), state...)
 
+Base.getindex(c::Coordinate, C::Type{<:Coordinate}) = maybe_only(C(c)...)
+Base.getindex(cd::Combo(Coordinate, Datum), (C, d)::Combo(Type{<:Coordinate}, Datum)) = maybe_only(C((C | d)(cd))...)
+
+Base.:|(d::Datum, c::Coordinate) = c | d
+Base.:|((c1, d)::Combo(Coordinate, Datum), c2::Coordinate) = (c1 | c2) | d
+
+(C::Type{<:Coordinate})((c, d)::Combo(Coordinate, Datum)) = C(c)
+((C, d_out)::Combo(Type{<:Coordinate}, Datum))((c, d_in)::Combo(Coordinate, Datum)) =
+    if d_out == d_in
+        return C(c) | d_out
+    else
+        error("TODO")
+        # return C((Spatial | d_out)(c))
+    end
+
 macro coordinate_dimension(Dim::Symbol, N::Integer)
     return esc(quote
         abstract type $Dim <: Coordinate end
         (::Type{C})(c::C) where {C <: $Dim} = c
-        Base.convert(::Type{C}, c::$Dim) where {C <: $Dim} = C(c)
+        # Base.convert(C::Type{<:$Dim}, c::$Dim) = C(c)
+        # Base.convert(C::Type{<:Combo($Dim, Datum)}, c::Combo($Dim, Datum)) = C(c)
         Base.length(::Type{<:$Dim}) = $N
     end)
 end
@@ -87,8 +70,8 @@ end
 macro number_constructors(Type::Symbol, N)
     return esc(quote
         $Type(numbers::Vararg{Number, $N}) = $Type{default_numtype(numbers)}(numbers)
-        (::Type{V})(numbers::NTuple{$N, Number}) where {V <: $Type} = V(numbers...)
-        (::Type{V})(numbers::StaticVector{$N, <:Number}) where {V <: $Type} = V(numbers...)
+        (V::Type{<:$Type})(numbers::NTuple{$N, Number}) = V(numbers...)
+        (V::Type{<:$Type})(numbers::StaticVector{$N, <:Number}) = V(numbers...)
     end)
 end
 
@@ -102,7 +85,7 @@ macro base_coordinate(Type_sub_Dim::Expr)
             $Type{T}(coords::Vararg{Number, $N}) where {T <: Number} = new{T}(coords)
         end
         @number_constructors($Type, $N)
-        (::Type{C})(c::$Type) where {C <: $Type} = C(c.coords)
+        (C::Type{<:$Type})(c::$Type) = C(c.coords)
         Base.Tuple(c::$Type) = c.coords
         numtype(::Type{$Type{T}}) where {T <: Number} = T
         function Base.show(io::IO, c::$Type)
@@ -129,15 +112,10 @@ macro combo_coordinate(Type_sub_Dim::Expr, SubDims::Symbol...)
             end
 
             $Type(coords::Tuple{$(SubDims...)}) = $Type{typeof.(coords)...}(coords)
-            (::Type{C})(c::$Type) where {C <: $Type} = C(c.coords)
-            $(
-                map(
-                    ((i, SubDim),) -> quote
-                        (::Type{C})(c::$Type) where {C <: $SubDim} = C(c.coords[$i])
-                    end,
-                    enumerate(SubDims),
-                )...
-            )
+            (C::Type{<:$Type})(c::$Type) = C(c.coords)
+            $(map(((i, SubDim),) -> quote
+                (C::Type{<:$SubDim})(c::$Type) = C(c.coords[$i])
+            end, enumerate(SubDims))...)
 
             function numtype(::Type{$Type{$(FieldTypeVars...)}}) where {$(FieldTypeVarDefs...)}
                 return promote_numtype($(FieldTypeVars...))
@@ -176,8 +154,8 @@ macro named_combo_coordinate(Name::Symbol, ComboType::Symbol, FieldTypes::Symbol
             end
             @number_constructors($Name, length($Name))
 
-            function Base.show(io::IO, c::$Name{T}) where {T <: Number}
-                print(io, $Name, "{", T, "}(")
+            function Base.show(io::IO, c::$Name)
+                print(io, $Name, "{", numtype(c), "}(")
                 join(io, Tuple(c), ", ")
                 return print(io, ")")
             end
@@ -185,16 +163,8 @@ macro named_combo_coordinate(Name::Symbol, ComboType::Symbol, FieldTypes::Symbol
     )
 end
 
-abstract type Datum end
-struct WithDatum{T, D <: Datum}
-    value::T
-    datum::D
-end
-const MaybeWithDatum{T} = Union{T, WithDatum{T}}
-
-Base.iterate((; value, datum)::WithDatum, state...) = iterate((value, datum), state...)
-Base.:(|)(value, datum::Datum) = WithDatum(value, datum)
-Base.show(io::IO, (value, datum)::WithDatum) = print(io, "WithDatum(", value, ", ", datum, ")")
+struct Wgs84 <: Datum end
+AxisAlignedEllipse(::Wgs84) = SemiMajorAxis(6378137.0) | InverseFlattening(298.257223563)
 
 @coordinate_dimension(SpaceCoordinate, 3)
 @coordinate_dimension(SurfaceCoordinate, 2)
@@ -211,12 +181,12 @@ Base.show(io::IO, (value, datum)::WithDatum) = print(io, "WithDatum(", value, ",
 @symmetric Base.:|(east::EastCoordinate, north::NorthCoordinate, alt::AltitudeCoordinate) =
     SurfaceAltitudeCoordinate((EastNorthCoordinate((east, north)), alt))
 
-(::Type{C})(c::SpaceCoordinate) where {C <: EastCoordinate} = C(SurfaceCoordinate(c))
-(::Type{C})(c::SpaceCoordinate) where {C <: NorthCoordinate} = C(SurfaceCoordinate(c))
+(C::Type{<:EastCoordinate})(c::SpaceCoordinate) = C(SurfaceCoordinate(c))
+(C::Type{<:NorthCoordinate})(c::SpaceCoordinate) = C(SurfaceCoordinate(c))
 
-(::Type{C})(c::EastNorthCoordinate) where {C <: NorthEastCoordinate} = C((c.coords[2], c.coords[1]))
-(::Type{C})(c::NorthEastCoordinate) where {C <: EastNorthCoordinate} = C((c.coords[2], c.coords[1]))
-(::Type{C})(c::SurfaceCoordinate) where {C <: NorthEastCoordinate} = C(EastNorthCoordinate(c))
+(C::Type{<:NorthEastCoordinate})(c::EastNorthCoordinate) = C((c.coords[2], c.coords[1]))
+(C::Type{<:EastNorthCoordinate})(c::NorthEastCoordinate) = C((c.coords[2], c.coords[1]))
+(C::Type{<:NorthEastCoordinate})(c::SurfaceCoordinate) = C(EastNorthCoordinate(c))
 
 @base_coordinate(Ecef <: SpaceCoordinate)
 @base_coordinate(Alt <: AltitudeCoordinate)
@@ -233,15 +203,15 @@ Base.show(io::IO, (value, datum)::WithDatum) = print(io, "WithDatum(", value, ",
 @named_combo_coordinate(WebMercator, EastNorthCoordinate, WmX, WmY)
 @named_combo_coordinate(WebMercatorAlt, SurfaceAltitudeCoordinate, WebMercator, Alt)
 
-(::Type{C})((wmx,)::WmX) where {C <: Lon} = C(wmx * 180)
-(::Type{C})((lon,)::Lon) where {C <: WmX} = C(lon / 180)
-(::Type{C})(c::EastCoordinate) where {C <: WmX} = C(Lon(c))
+(C::Type{<:Lon})((wmx,)::WmX) = C(wmx * 180)
+(C::Type{<:WmX})((lon,)::Lon) = C(lon / 180)
+(C::Type{<:WmX})(c::EastCoordinate) = C(Lon(c))
 
-(::Type{C})((wmy,)::WmY) where {C <: Lat} = C(2 * atand(exp(π * wmy)) - 90)
-function (::Type{C})((lat,)::Lat) where {C <: WmY}
+(C::Type{<:Lat})((wmy,)::WmY) = C(2 * atand(exp(π * wmy)) - 90)
+function (C::Type{<:WmY})((lat,)::Lat)
     @assert abs(lat) <= 90
     return C(log(tand((lat + 90) / 2)) / π)
 end
-(::Type{C})(c::NorthCoordinate) where {C <: WmY} = C(Lat(c))
+(C::Type{<:WmY})(c::NorthCoordinate) = C(Lat(c))
 
 end
