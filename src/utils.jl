@@ -386,3 +386,14 @@ macro number_tuple(Type_maybe_sub_Supertype, N::Integer)
         end
     end
 end
+
+"""
+    @static_length(Type, N)
+
+Add a method to `Base.length` for `Type`.
+"""
+macro static_length(Type, N)
+    Type = esc(Type)
+    N = esc(N)
+    return :(Base.length(::Union{$Type, Type{<:$Type}}) = $N)
+end

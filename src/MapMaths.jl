@@ -41,12 +41,6 @@ struct Wgs84Spheroid <: Spheroid end
 struct Wgs84Georef <: Georef end
 Wgs84() = Wgs84Spheroid() & Wgs84Georef()
 
-macro static_length(Type, N)
-    Type = esc(Type)
-    N = esc(N)
-    return :(Base.length(::Union{$Type, Type{<:$Type}}) = $N)
-end
-
 """
     @coordinate_combo struct Type [<: Supertype]
         (PartType1, PartType2, ...)
@@ -149,13 +143,15 @@ end
 @conversion_constructible abstract type GeoidlessSpaceCoordinate <: GeoidlessCoordinate end
 
 @convertible abstract type SurfaceCoordinate <: GeoidlessCoordinate end
-@convertible abstract type LongitudeCoordinate <: GeoidlessCoordinate end
-@convertible abstract type LatitudeCoordinate <: GeoidlessCoordinate end
-@convertible abstract type AltitudeCoordinate <: GeoidlessCoordinate end
-
-@static_length(SurfaceCoordinate, 2)
 @static_length(LongitudeCoordinate, 1)
+
+@convertible abstract type LongitudeCoordinate <: GeoidlessCoordinate end
+@static_length(SurfaceCoordinate, 2)
+
+@convertible abstract type LatitudeCoordinate <: GeoidlessCoordinate end
 @static_length(LatitudeCoordinate, 1)
+
+@convertible abstract type AltitudeCoordinate <: GeoidlessCoordinate end
 @static_length(AltitudeCoordinate, 1)
 
 @ampersand @coordinate_combo struct LongitudeLatitudeCoordinate <: SurfaceCoordinate
