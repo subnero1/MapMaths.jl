@@ -264,7 +264,7 @@ function combo(struct_def)
         end
 
         @symmetric function $Type{$(PartTypeVars...)}($(part_var_defs...)) where {$(PartTypeVarDefs...)}
-            return new{$(PartTypeVars...)}(
+            return $Type{$(PartTypeVars...)}(
                 $(map((part_var, PartTypeVar) -> :($PartTypeVar($part_var)), part_vars, PartTypeVars)...),
             )
         end
