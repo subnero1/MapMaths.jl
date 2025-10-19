@@ -21,6 +21,7 @@ export SpaceCoordinate,
     WebMercatorAlt
 
 using .Meta: isexpr
+using Base.ScopedValues
 using StaticArrays
 
 include("utils.jl")

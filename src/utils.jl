@@ -192,10 +192,16 @@ macro ampersand(full_struct_def::Expr)
         error("Unexpected type signature: $Type_maybe_sub_Supertype")
     end
     return quote
-        $(esc(full_struct_def))
+        $(
+            with(add_combo_show => false) do
+                return esc(macroexpand(__module__, full_struct_def))
+            end
+        )
 
         @symmetric Base.:&($(map(((i, Part),) -> :($(Symbol("c$i"))::$Part), enumerate(Parts))...)) =
             $Type($(ntuple(i -> Symbol("c$i"), length(Parts))...))
+
+        Base.show(io::IO, c::$Type) = join(io, parts(c), " & ")
     end
 end
 
@@ -232,6 +238,7 @@ end
 
 function parts end
 
+const add_combo_show = ScopedValue(true)
 function combo(struct_def)
     @assert isexpr(struct_def, :struct)
     @assert struct_def.args[1] == false # mutability
@@ -284,12 +291,18 @@ function combo(struct_def)
 
         MapMaths.parts(c::$Type) = c.parts
 
-        function Base.show(io::IO, c::$Type)
-            print(io, $Type, "(")
-            join(io, c.parts, ", ")
-            print(io, ")")
-            return nothing
-        end
+        $(
+            if add_combo_show[]
+                quote
+                    function Base.show(io::IO, c::$Type)
+                        print(io, $Type, "(")
+                        join(io, c.parts, ", ")
+                        print(io, ")")
+                        return nothing
+                    end
+                end
+            end
+        )
     end
 end
 
