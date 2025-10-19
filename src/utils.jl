@@ -132,8 +132,8 @@ macro symmetric(fun_def)
     @assert isexpr(signature, :call)
     name = signature.args[1]
     arg_defs = map(((i, arg_def),) -> begin
-        @assert isexpr(arg_def, :(::), 2)
-        return :($(Symbol("x$i"))::$(arg_def.args[2]))
+        @assert isexpr(arg_def, :(::))
+        return :($(Symbol("x$i"))::$(arg_def.args[end]))
     end, enumerate(signature.args[2:end]))
     args = ntuple(i -> Symbol("x$i"), length(arg_defs))
     call = if isexpr(signature_and_maybe_where_clause, :where)
