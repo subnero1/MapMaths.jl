@@ -206,6 +206,30 @@ macro ampersand(full_struct_def::Expr)
 end
 
 """
+    @iterable @combo struct Type [<: Supertype]
+        (PartType1, PartType2, ...)
+    end
+
+Add a `Base.iterate()` method which iterates over the parts of the combo type.
+"""
+macro iterable(full_struct_def::Expr)
+    struct_def = strip_macros(full_struct_def)
+    @assert isexpr(struct_def, :struct)
+    Type_maybe_sub_Supertype = struct_def.args[2]
+    if Type_maybe_sub_Supertype isa Symbol
+        Type = esc(Type_maybe_sub_Supertype)
+    elseif isexpr(Type_maybe_sub_Supertype, :(<:), 2)
+        Type = esc(Type_maybe_sub_Supertype.args[1])
+    else
+        error("Unexpected type signature: $Type_maybe_sub_Supertype")
+    end
+    return quote
+        $(esc(full_struct_def))
+        Base.iterate(c::$Type, state...) = iterate(parts(c), state...)
+    end
+end
+
+"""
     @combo struct Type [<: Supertype]
         (PartType1, PartType2, ...)
     end

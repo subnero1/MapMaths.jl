@@ -37,10 +37,9 @@ include("coordinate_utils.jl")
 
 @conversion_constructible abstract type Georef end
 
-@ampersand @combo struct Datum
+@iterable @ampersand @combo struct Datum
     (Geoid, Georef)
 end
-Base.iterate(datum::Datum, state...) = iterate((Geoid(datum), Georef(datum)), state...)
 
 struct Wgs84Spheroid <: Spheroid end
 struct Wgs84Georef <: Georef end
@@ -94,23 +93,20 @@ end
 ##############################################
 # Coordinate and geoid / georef combinations
 
-@ampersand @combo struct GeoidCoordinate <: Coordinate
+@iterable @ampersand @combo struct GeoidCoordinate <: Coordinate
     (GeoidlessCoordinate, Geoid)
 end
-Base.iterate(c::GeoidCoordinate, state...) = iterate((GeoidlessCoordinate(c), Geoid(c)), state...)
 @symmetric Base.:&((c1, geoid)::GeoidCoordinate, c2::GeoidlessCoordinate) = (c1 & c2) & geoid
 @symmetric Base.:&(c::Coordinate, ::Geoid) = c
 
-@ampersand @combo struct GeoidSpaceCoordinate <: SpaceCoordinate
+@iterable @ampersand @combo struct GeoidSpaceCoordinate <: SpaceCoordinate
     (GeoidlessSpaceCoordinate, Geoid)
 end
 (C::Type{<:GeoidlessCoordinate})(c::GeoidSpaceCoordinate) = C(GeoidlessSpaceCoordinate(c))
-Base.iterate(c::GeoidSpaceCoordinate, state...) = iterate((GeoidlessSpaceCoordinate(c), Geoid(c)), state...)
 
-@ampersand @combo struct Georeffed
+@iterable @ampersand @combo struct Georeffed
     (Coordinate, Georef)
 end
-Base.iterate(c::Georeffed, state...) = iterate((Coordinate(c), Georef(c)), state...)
 @symmetric Base.:&(coord::Coordinate, (geoid, georef)::Datum) = coord & georef
 @symmetric Base.:&(coord::GeoidlessCoordinate, (geoid, georef)::Datum) = (coord & geoid) & georef
 @symmetric Base.:&((c1, georef)::Georeffed, c2::Coordinate) = (c1 & c2) & georef
