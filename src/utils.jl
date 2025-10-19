@@ -66,6 +66,48 @@ default_numtype(T::Type{<:Number}) = T
 default_numtype(T::Type{<:Integer}) = float(T)
 
 """
+    @number_tuple(Type [<: Supertype], N)
+
+Define a new type `Type{T <: Number}` that (mostly) quacks like a `NTuple{N,
+T}`. The number type `T` is derived using [`default_numtype`](@ref), i.e.
+`Integer` types are promoted to floating point types by default.
+"""
+macro number_tuple(Type_maybe_sub_Supertype, N::Integer)
+    if Type_maybe_sub_Supertype isa Symbol
+        Type = esc(Type_maybe_sub_Supertype)
+        type_signature = :($Type{T <: Number})
+    elseif isexpr(Type_maybe_sub_Supertype, :(<:), 2)
+        (Type, Supertype) = esc.(Type_maybe_sub_Supertype.args)
+        type_signature = :($Type{T <: Number} <: $Supertype)
+    else
+        error("First argument to @number_tuple must be either `Type` or `Type <: Supertype`")
+    end
+    return quote
+        struct $type_signature
+            elements::NTuple{$N, T}
+            $Type{T}(elements::Vararg{Number, $N}) where {T <: Number} = new{T}(elements)
+        end
+
+        $Type(numbers::Vararg{Number, $N}) = $Type{default_numtype(numbers)}(numbers)
+        (C::Type{<:$Type})(numbers::NTuple{$N, Number}) = C(numbers...)
+        (C::Type{<:$Type})(numbers::StaticVector{$N, <:Number}) = C(numbers...)
+        (C::Type{<:$Type})(c::$Type) = C(c.elements)
+
+        Base.length(::Union{$Type, Type{<:$Type}}) = $N
+        Base.eltype(c::$Type{T}) where {T <: Number} = T
+        Base.iterate(c::$Type, state...) = iterate(c.elements, state...)
+        Base.Tuple(c::$Type) = c.elements
+        MapMaths.numtype(::Type{$Type{T}}) where {T <: Number} = T
+        function Base.show(io::IO, c::$Type)
+            print(io, typeof(c), "(")
+            join(io, Tuple(c), ", ")
+            print(io, ")")
+            return nothing
+        end
+    end
+end
+
+"""
     @symmetric function_definition
 
 Symmetrize the given function definition. 
@@ -342,48 +384,6 @@ macro convertible(abstract_type_def::Expr)
         abstract type $type_signature end
         (::Type{C})(c::C) where {C <: $Type} = c
         Base.convert(C::Type{<:$Type}, c::$Type) = C(c)
-    end
-end
-
-"""
-    @number_tuple(Type [<: Supertype], N)
-
-Define a new type `Type{T <: Number}` that (mostly) quacks like a `NTuple{N,
-T}`. The number type `T` is derived using [`default_numtype`](@ref), i.e.
-`Integer` types are promoted to floating point types by default.
-"""
-macro number_tuple(Type_maybe_sub_Supertype, N::Integer)
-    if Type_maybe_sub_Supertype isa Symbol
-        Type = esc(Type_maybe_sub_Supertype)
-        type_signature = :($Type{T <: Number})
-    elseif isexpr(Type_maybe_sub_Supertype, :(<:), 2)
-        (Type, Supertype) = esc.(Type_maybe_sub_Supertype.args)
-        type_signature = :($Type{T <: Number} <: $Supertype)
-    else
-        error("First argument to @number_tuple must be either `Type` or `Type <: Supertype`")
-    end
-    return quote
-        struct $type_signature
-            elements::NTuple{$N, T}
-            $Type{T}(elements::Vararg{Number, $N}) where {T <: Number} = new{T}(elements)
-        end
-
-        $Type(numbers::Vararg{Number, $N}) = $Type{default_numtype(numbers)}(numbers)
-        (C::Type{<:$Type})(numbers::NTuple{$N, Number}) = C(numbers...)
-        (C::Type{<:$Type})(numbers::StaticVector{$N, <:Number}) = C(numbers...)
-        (C::Type{<:$Type})(c::$Type) = C(c.elements)
-
-        Base.length(::Union{$Type, Type{<:$Type}}) = $N
-        Base.eltype(c::$Type{T}) where {T <: Number} = T
-        Base.iterate(c::$Type, state...) = iterate(c.elements, state...)
-        Base.Tuple(c::$Type) = c.elements
-        MapMaths.numtype(::Type{$Type{T}}) where {T <: Number} = T
-        function Base.show(io::IO, c::$Type)
-            print(io, typeof(c), "(")
-            join(io, Tuple(c), ", ")
-            print(io, ")")
-            return nothing
-        end
     end
 end
 
