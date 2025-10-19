@@ -99,6 +99,7 @@ end
 end
 Base.iterate(c::GeoidCoordinate, state...) = iterate((GeoidlessCoordinate(c), Geoid(c)), state...)
 @symmetric Base.:&((c1, geoid)::GeoidCoordinate, c2::GeoidlessCoordinate) = (c1 & c2) & geoid
+@symmetric Base.:&(c::Coordinate, ::Geoid) = c
 
 @ampersand @combo struct GeoidSpaceCoordinate <: SpaceCoordinate
     (GeoidlessSpaceCoordinate, Geoid)
