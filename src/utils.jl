@@ -205,12 +205,12 @@ macro ampersand(full_struct_def::Expr)
     end
 end
 
-"""
-    @iterable @combo struct Type [<: Supertype]
-        (PartType1, PartType2, ...)
-    end
+parts(x) = ntuple(i -> getfield(T, i), nfields(x))
 
-Add a `Base.iterate()` method which iterates over the parts of the combo type.
+"""
+    @iterable [mutable] struct Type ... end
+    
+Add a `Base.iterate()` method which iterates over all fields.
 """
 macro iterable(full_struct_def::Expr)
     struct_def = strip_macros(full_struct_def)
@@ -299,14 +299,8 @@ function combo(struct_def)
                 $(map((part_var, PartTypeVar) -> :($PartTypeVar($part_var)), part_vars, PartTypeVars)...),
             )
         end
-
         @symmetric $Type($(part_var_defs...)) =
             $Type{$(map(part_var -> :(typeof($part_var)), part_vars)...)}($(part_vars...))
-        # @symmetric $Type{$(PartTypeVars...)}($(part_var_defs...)) where {$(PartTypeVarDefs...)} =
-        #     $Type{$(PartTypeVars...)}((
-        #         $(map((part_var, PartTypeVar) -> :($PartTypeVar($part_var)), part_vars, PartTypeVars)...),
-        #     ))
-        # @symmetric (C::Type{<:$Type})($(part_var_defs...)) = C(tuple($(part_vars...)))
         (C::Type{<:$Type})(c::$Type) = C(c.parts...)
 
         $(map(((i, Part),) -> quote
