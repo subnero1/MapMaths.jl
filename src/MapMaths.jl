@@ -45,8 +45,8 @@ struct Wgs84Spheroid <: Spheroid end
 struct Wgs84Georef <: Georef end
 Wgs84() = Wgs84Spheroid() & Wgs84Georef()
 
-##############################################
-# Abstract coordinate types and combinations
+#############################
+# Abstract coordinate types 
 
 function coords end
 @conversion_constructible abstract type Coordinate end
@@ -68,6 +68,9 @@ function coords end
 
 @convertible abstract type AltitudeCoordinate <: GeoidlessCoordinate end
 @static_length(AltitudeCoordinate, 1)
+
+###########################
+# Coordinate combinations
 
 @ampersand @coordinate_combo struct LongitudeLatitudeCoordinate <: SurfaceCoordinate
     (LongitudeCoordinate, LatitudeCoordinate)
