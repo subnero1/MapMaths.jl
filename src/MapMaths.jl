@@ -112,8 +112,47 @@ end
 @symmetric Base.:&((c1, georef)::Georeffed, c2::Coordinate) = (c1 & c2) & georef
 @symmetric Base.:&((coord, georef)::Georeffed{<:GeoidlessCoordinate}, geoid::Geoid) = (coord & geoid) & georef
 
+struct CoordinateType{C <: Coordinate} <: Coordinate end
+struct GeoidlessCoordinateType{C <: GeoidlessCoordinate} <: GeoidlessCoordinate end
+CoordinateType(C::Type{<:Coordinate}) = CoordinateType{C}()
+CoordinateType(C::Type{<:GeoidlessCoordinate}) = GeoidlessCoordinateType{C}()
+
+@symmetric Base.:&(C::Type{<:Coordinate}, geoid::Geoid) = CoordinateType(C) & geoid
+@symmetric Base.:&(C::Type{<:Coordinate}, georef::Georef) = CoordinateType(C) & georef
+@symmetric Base.:&(C::Type{<:Coordinate}, (geoid, georef)::Datum) = (C & geoid) & georef
+
+(::CoordinateType{C})(c::Coordinate) where {C} = C(c)
+(::GeoidlessCoordinateType{C})(c::GeoidlessCoordinate) where {C} = C(c)
+
+Base.show(io::IO, ::CoordinateType{C}) where {C} = print(io, C)
+Base.show(io::IO, ::GeoidlessCoordinateType{C}) where {C} = print(io, C)
+
 ###########
 # Routing
+
+function convert_georef(georef1::Georef, (c, georef2)::Georeffed{SpaceCoordinate})
+    if georef1 != georef2
+        error("No conversion from $georef2 to $georef1")
+    end
+    return c & georef1
+end
+
+((C, georef)::Georeffed)(c::Georeffed{SpaceCoordinate}) = C(convert_georef(georef, c)) & georef
+function ((C, georef1)::Georeffed)((c, georef2)::Georeffed)
+    if georef1 != georef2
+        error("Georef conversion can only be done on space coordinates")
+    end
+    return C(c) & georef1
+end
+(C::Coordinate)((c, georef2)::Georeffed) = C(c)
+
+function ((C, geoid1)::GeoidCoordinate)((c, geoid2)::Union{GeoidCoordinate, GeoidSpaceCoordinate})
+    if geoid1 == geoid2
+        return C(c) & geoid1
+    else
+        return (C & geoid1)(Ecef(c))
+    end
+end
 
 (C::Type{<:LongitudeCoordinate})(c::GeoidlessSpaceCoordinate) = C(SurfaceCoordinate(c))
 (C::Type{<:LatitudeCoordinate})(c::GeoidlessSpaceCoordinate) = C(SurfaceCoordinate(c))
