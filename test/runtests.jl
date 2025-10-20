@@ -19,21 +19,25 @@ using Test
 end
 
 @testset "Combinations" begin
-    @test Lon(1) & Lat(2) == LonLat(1, 2)
-    @test Lat(2) & Lon(1) == LonLat(1, 2)
-    @test Lon(1) & Lat(2) & Alt(3) == LonLatAlt(1, 2, 3)
-    @test Lon(1) & Alt(3) & Lat(2) == LonLatAlt(1, 2, 3)
-    @test Lat(2) & Lon(1) & Alt(3) == LonLatAlt(1, 2, 3)
-    @test Lat(2) & Alt(3) & Lon(1) == LonLatAlt(1, 2, 3)
-    @test Alt(3) & Lon(1) & Lat(2) == LonLatAlt(1, 2, 3)
-    @test Alt(3) & Lat(2) & Lon(1) == LonLatAlt(1, 2, 3)
+    @test Lon(1) & Lat(2) == Lat(2) & Lon(1) == LonLat(1, 2)
+    @test Lon(1) & Lat(2) & Alt(3) ==
+          Lon(1) & Alt(3) & Lat(2) ==
+          Lat(2) & Lon(1) & Alt(3) ==
+          Lat(2) & Alt(3) & Lon(1) ==
+          Alt(3) & Lon(1) & Lat(2) ==
+          Alt(3) & Lat(2) & Lon(1) ==
+          LonLatAlt(1, 2, 3)
 
     @test Wgs84() & Lon(1) == Lon(1) & Wgs84()
-    @test Lon(1) & Wgs84() & Lat(2) == LonLat(1, 2) & Wgs84()
-    @test Wgs84() & Lon(1) & Lat(2) == LonLat(1, 2) & Wgs84()
-    @test Lon(1) & Lat(2) & Wgs84() & Alt(3) == LonLatAlt(1, 2, 3) & Wgs84()
-    @test Lon(1) & Wgs84() & Lat(2) & Alt(3) == LonLatAlt(1, 2, 3) & Wgs84()
-    @test Wgs84() & Lon(1) & Lat(2) & Alt(3) == LonLatAlt(1, 2, 3) & Wgs84()
+    @test Lon(1) & Wgs84() & Lat(2) == Wgs84() & Lon(1) & Lat(2) == LonLat(1, 2) & Wgs84()
+    @test Lon(1) & Lat(2) & Wgs84() & Alt(3) ==
+          Lon(1) & Wgs84() & Lat(2) & Alt(3) ==
+          Wgs84() & Lon(1) & Lat(2) & Alt(3) ==
+          LonLatAlt(1, 2, 3) & Wgs84()
+    @test Ecef(1, 2, 3) & Wgs84() ==
+          Ecef(1, 2, 3) & Wgs84Georef() ==
+          Wgs84() & Ecef(1, 2, 3) ==
+          Wgs84Georef() & Ecef(1, 2, 3)
 end
 
 @testset "Conversion constructors" begin
@@ -53,13 +57,13 @@ end
     @test LonLat(LonLatAlt(1, 2, 3) & Wgs84()) == LonLat(1, 2)
     @test LonLat(LatLonAlt(1, 2, 3) & Wgs84()) == LonLat(2, 1)
 
-    # @test (Lon & Wgs84())(LonLat(1, 2) & Wgs84()) == Lon(1) & Wgs84()
-    # @test (Lon & Wgs84())(LatLon(1, 2) & Wgs84()) == Lon(2) & Wgs84()
-    # @test (Lon & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == Lon(1) & Wgs84()
-    # @test (Lon & Wgs84())(LatLonAlt(1, 2, 3) & Wgs84()) == Lon(2) & Wgs84()
-    # @test (Alt & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == Alt(3) & Wgs84()
-    # @test (LonLat & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == LonLat(1, 2) & Wgs84()
-    # @test (LonLat & Wgs84())(LatLonAlt(1, 2, 3) & Wgs84()) == LonLat(2, 1) & Wgs84()
+    @test (Lon & Wgs84())(LonLat(1, 2) & Wgs84()) == Lon(1) & Wgs84()
+    @test (Lon & Wgs84())(LatLon(1, 2) & Wgs84()) == Lon(2) & Wgs84()
+    @test (Lon & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == Lon(1) & Wgs84()
+    @test (Lon & Wgs84())(LatLonAlt(1, 2, 3) & Wgs84()) == Lon(2) & Wgs84()
+    @test (Alt & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == Alt(3) & Wgs84()
+    @test (LonLat & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == LonLat(1, 2) & Wgs84()
+    @test (LonLat & Wgs84())(LatLonAlt(1, 2, 3) & Wgs84()) == LonLat(2, 1) & Wgs84()
 end
 
 # @testset "getindex" begin
@@ -79,8 +83,9 @@ end
 # end
 
 @testset "show" begin
-    repr(Lon(1)) == "Lon{Float64}(1.0)"
-    repr(LonLat(1, 2)) == "LonLat{Float64}(1.0, 2.0)"
-    repr(LonLatAlt(1, 2, 3)) == "LonLatAlt{Float64}(1.0, 2.0, 3.0)"
-    repr(Lon(1) & Wgs84()) == "Lon{Float64}(1.0) & Wgs84()"
+    @test repr(Lon(1)) == "Lon{Float64}(1.0)"
+    @test repr(LonLat(1, 2)) == "LonLat{Float64}(1.0, 2.0)"
+    @test repr(LonLatAlt(1, 2, 3)) == "LonLatAlt{Float64}(1.0, 2.0, 3.0)"
+    @test repr(Lon(1) & Wgs84()) == "Lon{Float64}(1.0) & Wgs84Spheroid() & Wgs84Georef()"
+    @test repr(Lon & Wgs84()) == "Lon & Wgs84Spheroid() & Wgs84Georef()"
 end
