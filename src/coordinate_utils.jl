@@ -1,5 +1,3 @@
-function coords end
-
 """
     @coordinate_combo struct Type [<: Supertype]
         (PartType1, PartType2, ...)

@@ -48,6 +48,7 @@ Wgs84() = Wgs84Spheroid() & Wgs84Georef()
 ##############################################
 # Abstract coordinate types and combinations
 
+function coords end
 @conversion_constructible abstract type Coordinate end
 @conversion_constructible abstract type GeoidlessCoordinate <: Coordinate end
 
