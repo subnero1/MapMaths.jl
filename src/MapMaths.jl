@@ -163,19 +163,19 @@ end
 #############################
 # Concrete coordinate types
 
-@number_tuple(Ecef <: SpaceCoordinate, 3)
-@number_tuple(Alt <: AltitudeCoordinate, 1)
+@coordinate_number_tuple(Ecef <: SpaceCoordinate, 3)
+@coordinate_number_tuple(Alt <: AltitudeCoordinate, 1)
 
-@number_tuple(Lon <: LongitudeCoordinate, 1)
-@number_tuple(Lat <: LatitudeCoordinate, 1)
+@coordinate_number_tuple(Lon <: LongitudeCoordinate, 1)
+@coordinate_number_tuple(Lat <: LatitudeCoordinate, 1)
 
 @named_coordinate_combo LonLat = LongitudeLatitudeCoordinate{Lon, Lat}
 @named_coordinate_combo LonLatAlt = SurfaceAltitudeCoordinate{LonLat, Alt}
 @named_coordinate_combo LatLon = LatitudeLongitudeCoordinate{Lat, Lon}
 @named_coordinate_combo LatLonAlt = SurfaceAltitudeCoordinate{LatLon, Alt}
 
-@number_tuple(WmX <: LongitudeCoordinate, 1)
-@number_tuple(WmY <: LatitudeCoordinate, 1)
+@coordinate_number_tuple(WmX <: LongitudeCoordinate, 1)
+@coordinate_number_tuple(WmY <: LatitudeCoordinate, 1)
 @named_coordinate_combo WebMercator = LongitudeLatitudeCoordinate{WmX, WmY}
 @named_coordinate_combo WebMercatorAlt = SurfaceAltitudeCoordinate{WebMercator, Alt}
 

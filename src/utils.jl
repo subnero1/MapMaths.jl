@@ -73,6 +73,10 @@ T}`. The number type `T` is derived using [`default_numtype`](@ref), i.e.
 `Integer` types are promoted to floating point types by default.
 """
 macro number_tuple(Type_maybe_sub_Supertype, N::Integer)
+    return number_tuple(Type_maybe_sub_Supertype, N)
+end
+
+function number_tuple(Type_maybe_sub_Supertype, N::Integer)
     if Type_maybe_sub_Supertype isa Symbol
         Type = esc(Type_maybe_sub_Supertype)
         type_signature = :($Type{T <: Number})
@@ -96,7 +100,6 @@ macro number_tuple(Type_maybe_sub_Supertype, N::Integer)
         Base.length(::Union{$Type, Type{<:$Type}}) = $N
         Base.eltype(c::$Type{T}) where {T <: Number} = T
         Base.iterate(c::$Type, state...) = iterate(c.elements, state...)
-        Base.Tuple(c::$Type) = c.elements
         MapMaths.numtype(::Type{$Type{T}}) where {T <: Number} = T
         function Base.show(io::IO, c::$Type)
             print(io, typeof(c), "(")

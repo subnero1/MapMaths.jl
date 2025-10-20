@@ -1,3 +1,5 @@
+function coords end
+
 """
     @coordinate_combo struct Type [<: Supertype]
         (PartType1, PartType2, ...)
@@ -38,10 +40,30 @@ macro coordinate_combo(struct_def::Expr)
         )
         $(combo(struct_def))
         @static_length($Type, sum(length.(tuple($(Parts...)))))
-        Base.Tuple(c::$Type) = flatten(Tuple.(parts(c)))
+        MapMaths.coords(c::$Type) = flatten(coords.(parts(c)))
         function MapMaths.numtype(::Type{$Type{$(PartTypeVars...)}}) where {$(PartTypeVarDefs...)}
             return promote_numtype($(PartTypeVars...))
         end
+    end
+end
+
+"""
+    @coordinate_number_tuple Type [<: Supertype], N
+
+Extension of [`@number_tuple`](@ref) with additional methods specific to
+coordinate types.
+"""
+macro coordinate_number_tuple(Type_maybe_sub_Supertype, N::Integer)
+    if Type_maybe_sub_Supertype isa Symbol
+        Type = esc(Type_maybe_sub_Supertype)
+    elseif isexpr(Type_maybe_sub_Supertype, :(<:), 2)
+        Type = esc(Type_maybe_sub_Supertype.args[1])
+    else
+        error("First argument to @coordinate_number_tuple must be either `Type` or `Type <: Supertype`")
+    end
+    return quote
+        $(number_tuple(Type_maybe_sub_Supertype, N))
+        MapMaths.coords(c::$Type) = Tuple(c)
     end
 end
 
@@ -85,7 +107,7 @@ macro named_coordinate_combo(expr::Expr)
 
         function Base.show(io::IO, c::$Name)
             print(io, $Name, "{", numtype(c), "}(")
-            join(io, Tuple(c), ", ")
+            join(io, coords(c), ", ")
             return print(io, ")")
         end
     end
