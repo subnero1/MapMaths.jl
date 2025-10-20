@@ -102,6 +102,7 @@ end
 end
 @symmetric Base.:&((c1, geoid)::GeoidCoordinate, c2::GeoidlessCoordinate) = (c1 & c2) & geoid
 @symmetric Base.:&(c::Coordinate, ::Geoid) = c
+coords(c::GeoidCoordinate) = coords(GeoidlessCoordinate(c))
 
 @iterable @ampersand @combo struct GeoidSpaceCoordinate <: SpaceCoordinate
     (GeoidlessSpaceCoordinate, Geoid)
@@ -115,6 +116,7 @@ end
 @symmetric Base.:&(coord::GeoidlessCoordinate, (geoid, georef)::Datum) = (coord & geoid) & georef
 @symmetric Base.:&((c1, georef)::Georeffed, c2::Coordinate) = (c1 & c2) & georef
 @symmetric Base.:&((coord, georef)::Georeffed{<:GeoidlessCoordinate}, geoid::Geoid) = (coord & geoid) & georef
+coords(c::Georeffed) = coords(Coordinate(c))
 
 struct CoordinateType{C <: Coordinate} <: Coordinate end
 struct GeoidlessCoordinateType{C <: GeoidlessCoordinate} <: GeoidlessCoordinate end
