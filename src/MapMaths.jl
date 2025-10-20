@@ -166,6 +166,24 @@ end
 (C::Type{<:LongitudeLatitudeCoordinate})(c::SurfaceCoordinate) = C(LongitudeCoordinate(c), LatitudeCoordinate(c))
 (C::Type{<:LatitudeLongitudeCoordinate})(c::SurfaceCoordinate) = C(LatitudeCoordinate(c), LongitudeCoordinate(c))
 
+############
+# Indexing
+
+unwrap_if_singleton(x::Tuple) = x
+unwrap_if_singleton((x,)::NTuple{1}) = x
+
+function Base.getindex(
+    c::Georeffed,
+    C::Georeffed{<:Union{Type{<:Coordinate}, GeoidCoordinate{<:GeoidlessCoordinateType}}},
+)
+    return unwrap_if_singleton(coords(C(c)))
+end
+function Base.getindex(c::Coordinate, C::Union{Type{<:Coordinate}, GeoidCoordinate{<:GeoidlessCoordinateType}})
+    return unwrap_if_singleton(coords(C(c)))
+end
+Base.getindex(c::Coordinate, C::Type{<:GeoidlessCoordinate}) = throw(MethodError(Base.getindex, (c, C)))
+Base.getindex(c::GeoidlessCoordinate, C::Type{<:GeoidlessCoordinate}) = unwrap_if_singleton(coords(C(c)))
+
 #############################
 # Concrete coordinate types
 

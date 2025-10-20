@@ -66,21 +66,39 @@ end
     @test (LonLat & Wgs84())(LatLonAlt(1, 2, 3) & Wgs84()) == LonLat(2, 1) & Wgs84()
 end
 
-# @testset "getindex" begin
-#     @test Lon(1)[Lon] == 1
-#     @test LonLat(1, 2)[Lon] == 1
-#     @test LonLat(1, 2)[Lat] == 2
-#     @test LonLatAlt(1, 2, 3)[Lon] == 1
-#     @test LonLatAlt(1, 2, 3)[Lat] == 2
-#     @test LonLatAlt(1, 2, 3)[Alt] == 3
+@testset "getindex" begin
+    @test Lon(1)[Lon] == 1
+    @test LonLat(1, 2)[Lon] == 1
+    @test LonLat(1, 2)[Lat] == 2
+    @test LonLatAlt(1, 2, 3)[Lon] == 1
+    @test LonLatAlt(1, 2, 3)[Lat] == 2
+    @test LonLatAlt(1, 2, 3)[Alt] == 3
 
-#     @test (Lon(1)&Wgs84())[Lon&Wgs84()] == 1
-#     @test (LonLat(1, 2)&Wgs84())[Lon&Wgs84()] == 1
-#     @test (LonLat(1, 2)&Wgs84())[Lat&Wgs84()] == 2
-#     @test (LonLatAlt(1, 2, 3)&Wgs84())[Lon&Wgs84()] == 1
-#     @test (LonLatAlt(1, 2, 3)&Wgs84())[Lat&Wgs84()] == 2
-#     @test (LonLatAlt(1, 2, 3)&Wgs84())[Alt&Wgs84()] == 3
-# end
+    @test (Lon(1)&Wgs84Spheroid())[Lon&Wgs84Spheroid()] == 1
+    @test (LonLat(1, 2)&Wgs84Spheroid())[Lon&Wgs84Spheroid()] == 1
+    @test (LonLat(1, 2)&Wgs84Spheroid())[Lat&Wgs84Spheroid()] == 2
+    @test (LonLatAlt(1, 2, 3)&Wgs84Spheroid())[Lon&Wgs84Spheroid()] == 1
+    @test (LonLatAlt(1, 2, 3)&Wgs84Spheroid())[Lat&Wgs84Spheroid()] == 2
+    @test (LonLatAlt(1, 2, 3)&Wgs84Spheroid())[Alt&Wgs84Spheroid()] == 3
+
+    @test (Lon(1)&Wgs84())[Lon&Wgs84()] == 1
+    @test (LonLat(1, 2)&Wgs84())[Lon&Wgs84()] == 1
+    @test (LonLat(1, 2)&Wgs84())[Lat&Wgs84()] == 2
+    @test (LonLatAlt(1, 2, 3)&Wgs84())[Lon&Wgs84()] == 1
+    @test (LonLatAlt(1, 2, 3)&Wgs84())[Lat&Wgs84()] == 2
+    @test (LonLatAlt(1, 2, 3)&Wgs84())[Alt&Wgs84()] == 3
+
+    @test_throws MethodError (Lon(1)&Wgs84Spheroid())[Lon]
+    @test_throws MethodError (Lon(1))[Lon&Wgs84Spheroid()]
+    @test_throws MethodError (Lon(1)&Wgs84())[Lon]
+    @test_throws MethodError (Lon(1)&Wgs84())[Lon&Wgs84Spheroid()]
+    @test_throws MethodError (Lon(1)&Wgs84())[Lon&Wgs84Georef()]
+    @test_throws MethodError (Ecef(1, 2, 3)&Wgs84())[Ecef]
+    @test_throws MethodError (Lon(1))[Lon&Wgs84()]
+    @test_throws MethodError (Lon(1)&Wgs84Spheroid())[Lon&Wgs84()]
+    @test_throws MethodError (Lon(1)&Wgs84Georef())[Lon&Wgs84()]
+    @test_throws MethodError (Ecef(1, 2, 3))[Ecef&Wgs84()]
+end
 
 @testset "show" begin
     @test repr(Lon(1)) == "Lon{Float64}(1.0)"
