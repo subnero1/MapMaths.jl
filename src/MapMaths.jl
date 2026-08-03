@@ -1,217 +1,593 @@
 module MapMaths
 
-export GeoReference, Geoid, Ellipsoid, Spheroid, Georef, Georeffed, Datum, Wgs84Spheroid, Wgs84Georef, Wgs84
-
-export SpaceCoordinate,
-    SurfaceCoordinate,
-    LongitudeCoordinate,
-    LatitudeCoordinate,
-    AltitudeCoordinate,
-    Ecef,
-    Alt,
+export
+    CoordinateSystem,
+    Coordinate,
+    coordinate_system,
+    Datum,
+    cmap,
+    SemiMajorAxis,
+    SemiMinorAxis,
+    Wgs84,
+    CartesianX,
+    CartesianY,
+    CartesianZ,
+    CartesianXY,
+    Cartesian,
+    Longitude,
+    CylindricalRadius,
+    Radius,
+    GeocentricLatitude,
+    GeocentricAltitude,
+    Cylindrical,
+    Spherical,
+    GeocentricLonLat,
+    GeocentricLatLon,
+    GeocentricLonLatAlt,
+    GeocentricLatLonAlt,
     Lon,
+    GeocentricLat,
+    GeocentricAlt,
+    GeodeticLatitude,
+    GeodeticAltitude,
+    GeodeticLonLat,
+    GeodeticLatLon,
+    GeodeticLatAlt,
+    GeodeticLonLatAlt,
+    GeodeticLatLonAlt,
+    GeodeticLat,
+    GeodeticAlt,
     Lat,
+    Alt,
     LonLat,
-    LonLatAlt,
     LatLon,
+    LatAlt,
+    LonLatAlt,
     LatLonAlt,
     WmX,
     WmY,
     WebMercator,
-    WebMercatorAlt
+    WebMercatorAlt,
+    East,
+    North,
+    Up,
+    Azimuth,
+    Elevation,
+    HorizontalRange,
+    Range,
+    EastNorth,
+    EastNorthUp,
+    AzimuthElevation,
+    AzimuthElevationRange,
+    Origin
 
-using .Meta: isexpr
+using .Meta: isexpr, unescape
 using Base.ScopedValues
+using Combinatorics
+using LinearAlgebra
 using StaticArrays
 
 include("utils.jl")
-include("coordinate_utils.jl")
-# include("ellipses.jl")
+include("ellipses.jl")
 
-##################
-# Geoid & Georef
+# The following functions are faster but less accurate than their Base
+# counterparts.  Uncomment them for fair comparisons against packages which use
+# these fast definitions (e.g. CoordRefSystems.jl).
+# vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+# sind(x) = sin(deg2rad(x))
+# cosd(x) = cos(deg2rad(x))
+# sincosd(x) = sincos(deg2rad(x))
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-@conversion_constructible abstract type Geoid end
-@conversion_constructible abstract type Ellipsoid <: Geoid end
-@conversion_constructible abstract type Spheroid <: Ellipsoid end
 
-@conversion_constructible abstract type Georef end
+#####################################
+# Coordinates and coordinate systems
 
-@iterable @ampersand @combo struct Datum
-    (Geoid, Georef)
+"""
+    CoordinateSystem
+
+Supertype for coordinate systems (e.g. `Cartesian()` or `LonLat()`).
+
+Coordinate systems can be combined using `&`.
+
+# Example
+```jldoctest
+julia> Lon() & Lat()
+GeodeticLonLat()
+```
+"""
+abstract type CoordinateSystem end
+
+"""
+    Coordinate{S <: CoordinateSystem}
+
+Generic coordinate type. 
+
+Notable operations: 
+
+- `Coordinate` constructors are generally of the form `Coordinate(system,
+  args...)`. Check the docstring of the coordinate system for the precise
+  signature. 
+- Like `CoordinateSystem`s, `Coordinate`s can be combined using `&`. 
+- Iterating a `Coordinate` yields its components. 
+- `Coordinate(s::CoordinateSystem) = Coordinate{typeof(s))}` is a convenience
+  method for constructing `Coordinate` type signatures for dispatch. 
+
+# Example
+```jldoctest
+julia> Coordinate(Lon(), 1) & Coordinate(Lat(), 2)
+Coordinate(GeodeticLonLat(), 1.0, 2.0)
+
+julia> (Coordinate(LonLat(), 1,2)...,)
+(1.0, 2.0)
+```
+"""
+struct Coordinate{S, V}
+    system::S
+    value::V
+
+    # Dummy inner constructor to avoid ambiguities with the default outer constructor
+    Coordinate{:inner}(system::CoordinateSystem, value::Tuple) = new{typeof(system), typeof(value)}(system, value)
 end
 
-struct Wgs84Spheroid <: Spheroid end
-struct Wgs84Georef <: Georef end
-Wgs84() = Wgs84Spheroid() & Wgs84Georef()
+Coordinate(system::CoordinateSystem) = Coordinate{typeof(system)}
+Base.iterate(coord::Coordinate, state...) = iterate(coord.value, state...)
+Base.length(coord::Coordinate) = length(coord.value)
+Base.eltype(coord::Coordinate) = eltype(coord.value)
+function Base.show(io::IO, coord::Coordinate)
+    print(io, Coordinate, "(", coord.system, ", ")
+    join(io, coord.value, ", ")
+    print(io, ")")
+    return
+end
 
-#############################
-# Abstract coordinate types 
+"""
+    coordinate_system(coord)
 
-function coords end
-@conversion_constructible abstract type Coordinate end
-@conversion_constructible abstract type GeoidlessCoordinate <: Coordinate end
+Coordinate system of the given coordinate. Also works for types, in which case
+it returns the type of the coordinate system.
+"""
+function coordinate_system end
+coordinate_system(coord::Coordinate) = coord.system
+coordinate_system(::Type{<:Coordinate{S}}) where {S} = S
 
-@convertible abstract type SpaceCoordinate <: Coordinate end
-@static_length(SpaceCoordinate, 3)
 
-@conversion_constructible abstract type GeoidlessSpaceCoordinate <: GeoidlessCoordinate end
+###################
+# Conversion graph
 
-@convertible abstract type SurfaceCoordinate <: GeoidlessCoordinate end
-@static_length(SurfaceCoordinate, 2)
+"""
+    lossy_parent(system)
 
-@convertible abstract type LongitudeCoordinate <: GeoidlessCoordinate end
-@static_length(LongitudeCoordinate, 1)
+Coordinate system to use when converting to the given coordinate system.
 
-@convertible abstract type LatitudeCoordinate <: GeoidlessCoordinate end
-@static_length(LatitudeCoordinate, 1)
+Defining `lossy_parent(::Child) = parent` is similar to adding a method
+```
+cmap(system::Child, coord) = cmap(system, cmap(parent, coord))
+```
+but it avoids the ambiguities that the above method would create.
 
-@convertible abstract type AltitudeCoordinate <: GeoidlessCoordinate end
-@static_length(AltitudeCoordinate, 1)
+See also [`lossless_parent`](@ref).
+"""
+function lossy_parent end
+
+"""
+    lossless_parent(system)
+
+Coordinate system to use when converting to or from the given coordinate system.
+
+Defining `lossless_parent(::Child) = parent` is similar to adding the methods
+```
+cmap(system::Child, coord) = cmap(system, cmap(parent, coord))
+cmap(system, coord::Coordinate{Child}) = cmap(system, cmap(parent, coord))
+```
+but it avoids the ambiguities that the above methods would create.
+
+This function can also be called with a `Coordinate`, in which case it is
+equivalent to `lossless_parent(coordinate_system(coord))`.
+
+See also [`lossy_parent`](@ref).
+"""
+function lossless_parent end
+
+lossy_parent(system::CoordinateSystem...) = lossless_parent(system...)
+lossless_parent(system::CoordinateSystem...) = nothing
+lossless_parent(coord::Coordinate) = lossless_parent(coordinate_system(coord))
+
+
+####################
+# Tuple coordinates
+
+"""
+    TupleCoordinateSystem <: CoordinateSystem
+
+Combination of multiple coordinate systems (e.g. `LonLat`). See [`&`](@ref).
+"""
+struct TupleCoordinateSystem{P <: NTuple{<:Any, CoordinateSystem}} <: CoordinateSystem
+    parts::P
+end
+TupleCoordinateSystem(parts::CoordinateSystem...) = TupleCoordinateSystem(parts)
+
+"""
+    parts(coord_or_system)
+
+Decompose a coordinate or coordinate system into its parts. Also works for types. 
+
+# Example
+```jldoctest
+julia> parts(LonLat)
+(Longitude, GeodeticLatitude)
+```
+"""
+function parts end
+parts(system::CoordinateSystem) = (system,)
+parts(System::Type{<:CoordinateSystem}) = (System,)
+parts(coord::Coordinate) = (coord,)
+parts(Coord::Type{<:Coordinate}) = (Coord,)
+parts(tuple_system::TupleCoordinateSystem) = tuple_system.parts
+parts(TupleSystem::Type{<:TupleCoordinateSystem}) = fieldtypes(fieldtype(TupleSystem, :parts))
+parts(tuple_coord::Coordinate{<:TupleCoordinateSystem}) = map(
+    (s, v) -> Coordinate{:inner}(s, (v,)),
+    parts(coordinate_system(tuple_coord)),
+    tuple_coord.value,
+)
+function parts(TupleCoord::Type{<:Coordinate{<:TupleCoordinateSystem}})
+    return map(
+        (S, V) -> Coordinate{S, Tuple{V}},
+        parts(fieldtype(TupleCoord, :system)),
+        fieldtypes(fieldtype(TupleCoord, :value)),
+    )
+end
+
+"""
+    n_parts(system_or_coord)
+
+Number of parts in the given coordinate or coordinate system.
+"""
+n_parts(coord_or_system) = length(parts(coord_or_system))
+
+"""
+    (&)(coords...)
+    (&)(systems...)
+
+Combine coordinates or coordinate systems.  
+
+See also [`join_coords`](@ref) and [`join_systems`](@ref) 
+"""
+Base.:&(systems::CoordinateSystem...) = TupleCoordinateSystem(flatten(parts.(systems)))
+Base.:&(system::CoordinateSystem) = system
+
+function Base.:&(coords::Coordinate...)
+    return Coordinate{:inner}(
+        (&)(coordinate_system.(coords)...),
+        flatten(map(coord -> coord.value, coords))
+    )
+end
+Base.:&(coord::Coordinate) = coord
+
+lossy_parent(system::TupleCoordinateSystem) = lossy_parent(parts(system)...)
+lossless_parent(system::TupleCoordinateSystem) = lossless_parent(parts(system)...)
+
+function Base.show(io::IO, system::TupleCoordinateSystem)
+    if length(parts(system)) == 0
+        return print(io, join_systems, "()")
+    end
+    return join(io, parts(system), " & ")
+end
+
+
+########
+# Datum
+
+"""
+    Datum
+
+Supertype for coordinate datums (e.g. `Wgs84()`).
+
+Notable operations:
+
+- `Ellipse(datum)` returns the reference ellipse for the given datum.
+- `datum[EllipseParameter]` is a convenience method for
+  `Ellipse(datum)[EllipseParameter]`.
+"""
+abstract type Datum end
+
+Base.getindex(datum::Datum, P::Type{<:EllipseParameter}) = Ellipse(datum)[P]
+
+#####################
+# Scalar coordinates
+
+"""
+    ScalarCoordinateSystem <: CoordinateSystem
+
+Supertype for coordinate systems with a single scalar value (e.g. `Longitude` or
+`CartesianX`).
+
+Coordinates in a scalar coordinate system `system` can be constructed using
+`Coordinate(system, [T], x::Number)` where `T` is an optional `Number` type. 
+Similarly, Coordinates in a combinations of scalar coordinate systems can be
+constructed using `Coordinate(system, [T], x::Number...)`.
+"""
+abstract type ScalarCoordinateSystem <: CoordinateSystem end
+
+Coordinate(system::ScalarCoordinateSystem, value::Number) = Coordinate(system, default_numtype(value), value)
+Coordinate(system::ScalarCoordinateSystem, T::Type{<:Number}, value::Number) = Coordinate{:inner}(system, (convert(T, value),))
+
+numtype(Coord::Type{<:Coordinate{<:ScalarCoordinateSystem}}) = numtype(fieldtype(Coord, :value))
+with_numtype(c::Coordinate{<:ScalarCoordinateSystem}, T::Type{<:Number}) = Coordinate(c.system, T, only(c.value))
+
+
+#####################
+# Vector coordinates
+
+const VectorCoordinateSystem{N} = TupleCoordinateSystem{<:NTuple{N, ScalarCoordinateSystem}}
+
+Coordinate(system::VectorCoordinateSystem{N}, values::Vararg{Number, N}) where {N} = Coordinate(system, values)
+Coordinate(system::VectorCoordinateSystem{N}, values::NTuple{N, Number}) where {N} = Coordinate(system, default_numtype(values), values)
+Coordinate(system::VectorCoordinateSystem{N}, T::Type{<:Number}, values::Vararg{Number, N}) where {N} = Coordinate(system, T, values)
+Coordinate(system::VectorCoordinateSystem{N}, T::Type{<:Number}, values::NTuple{N, Number}) where {N} = Coordinate{:inner}(system, convert.(T, values))
+
+numtype(Coord::Type{<:Coordinate{<:VectorCoordinateSystem}}) = numtype(fieldtype(Coord, :value))
+with_numtype(c::Coordinate{<:VectorCoordinateSystem}, T::Type{<:Number}) = Coordinate(c.system, T, c.value)
+
+
+########################
+# Coordinate conversion
+
+"""
+    cmap(system, coord, [datum])
+
+Map a coordinate to the given coordinate system, using `datum` if provided (and
+needed).
+
+The behaviour of `cmap()` can be extended by adding methods to
+[`lossy_parent()`](@ref), [`lossless_parent()`](@ref), and
+[`cmap_impl()`](@ref). See the "Under The Hood" section in the
+[README](README.md#under-the-hood) for details.
+
+# Example
+```jldoctest
+julia> cmap(Longitude(), Coordinate(CartesianXY(), 0, 1))
+Coordinate(Longitude(), 90.0)
+```
+"""
+function cmap end
+
+"""
+    cmap_impl(system, coord, [datum])
+
+Coordinate conversion rules to be used by [`cmap()`](@ref). 
+"""
+function cmap_impl end
+
+for (maybe_datum, maybe_datum_arg) in (
+        ((), ()),
+        ((:datum,), (:(datum::Datum),)),
+    )
+    @eval begin
+        function cmap(system::CoordinateSystem, coord::Coordinate, $(maybe_datum_arg...))
+            return @something(
+                permute_coords(system, coord),
+                apply_cmap_impl(system, coord, $(maybe_datum...)),
+                bump_system(system, coord, $(maybe_datum...)),
+                bump_coord(system, coord, $(maybe_datum...)),
+                error("Cannot convert from $(coordinate_system(coord)) to $system. Please raise an issue if you think this is a bug.")
+            )
+        end
+
+        # Check whether there exists a `cmap_impl()` method for any subset of
+        # `system` and `coord` components, and if so, apply it and return the
+        # result. Returns `nothing` otherwise.
+        @generated function apply_cmap_impl(system::CoordinateSystem, coord::Coordinate, $(maybe_datum_arg...))
+            result = Expr(:block)
+            for n_systems in reverse(1:n_parts(system)),
+                    n_coords in 1:n_parts(coord),
+                    system_idx in permutations(1:n_parts(system), n_systems),
+                    coord_idx in permutations(1:n_parts(coord), n_coords)
+                remainder = if n_systems < n_parts(system)
+                    (
+                        :(
+                            cmap(
+                                (&)($(map(i -> :(parts(system)[$i]), setdiff(1:n_parts(system), system_idx))...)),
+                                coord,
+                                $($maybe_datum...)
+                            )
+                        ),
+                    )
+                else
+                    ()
+                end
+                push!(
+                    result.args,
+                    quote
+                        let permuted_system = (&)($(map(i -> :(parts(system)[$i]), system_idx)...)),
+                                permuted_coord = (&)($(map(i -> :(parts(coord)[$i]), coord_idx)...))
+                            if Core._hasmethod( # https://discourse.julialang.org/t/method-lookup-in-generated-functions/138047/6
+                                    Tuple{
+                                        typeof(cmap_impl),
+                                        typeof(permuted_system),
+                                        typeof(permuted_coord),
+                                    }
+                                )
+                                return cmap(
+                                    system,
+                                    (&)(
+                                        Coordinate(
+                                            permuted_system,
+                                            cmap_impl(permuted_system, permuted_coord),
+                                        ),
+                                        $(remainder...),
+                                    ),
+                                )
+                            end
+                            $(
+                                if length($maybe_datum) > 0
+                                    :(
+                                        if Core._hasmethod(
+                                                Tuple{
+                                                    typeof(cmap_impl),
+                                                    typeof(permuted_system),
+                                                    typeof(permuted_coord),
+                                                    typeof($($maybe_datum...)),
+                                                }
+                                            )
+                                            return cmap(
+                                                system,
+                                                (&)(
+                                                    Coordinate(
+                                                        permuted_system,
+                                                        cmap_impl(permuted_system, permuted_coord, $($maybe_datum...)),
+                                                    ),
+                                                    $(remainder...),
+                                                ),
+                                            )
+                                        end
+                                    )
+                                else
+                                    :(
+                                        if Core._hasmethod(
+                                                Tuple{
+                                                    typeof(cmap_impl),
+                                                    typeof(permuted_system),
+                                                    typeof(permuted_coord),
+                                                    Datum,
+                                                }
+                                            )
+                                            error("Conversion from $(coordinate_system(coord)) to $(system) requires a datum.")
+                                        end
+                                    )
+                                end
+                            )
+                        end
+                    end
+                )
+            end
+            push!(
+                result.args,
+                :(return nothing)
+            )
+            return result
+        end
+
+        # Route via `lossy_parent(system)`. Returns nothing if `system` has no parent.
+        function bump_system(system::CoordinateSystem, coord::Coordinate, $(maybe_datum_arg...))
+            if (
+                    !isnothing(lossy_parent(system))
+                        && !is_ancestor(lossless_parent, system, coordinate_system(coord))
+                        && !is_set_equal(parts(lossy_parent(system)), parts(coordinate_system(coord)))
+                )
+                return cmap(
+                    system,
+                    cmap(
+                        lossy_parent(system),
+                        coord,
+                        $(maybe_datum...)
+                    ),
+                    $(maybe_datum...)
+                )
+            end
+            return nothing
+        end
+
+        # Route via `lossless_parent(coord)`. Returns nothing if `coord` has no parent.
+        function bump_coord(system::CoordinateSystem, coord::Coordinate, $(maybe_datum_arg...))
+            if (
+                    !isnothing(lossless_parent(coord))
+                        && !is_ancestor(lossy_parent, coordinate_system(coord), system)
+                        && !is_set_equal(parts(system), parts(lossless_parent(coord)))
+                )
+                return cmap(
+                    system,
+                    cmap(
+                        lossless_parent(coord),
+                        coord,
+                        $(maybe_datum...)
+                    ),
+                    $(maybe_datum...)
+                )
+            end
+            return nothing
+        end
+    end
+end
+
+"""
+    is_ancestor(parent, sys1, sys2)
+
+Check whether `sys1` is an ancestor of `sys2` according to the `parent` relation. 
+
+See also [`lossy_parent`](@ref) and [`lossless_parent`](@ref).
+"""
+function is_ancestor(parent, sys1::CoordinateSystem, sys2::CoordinateSystem)
+    if issubset(parts(sys2), parts(sys1))
+        return true
+    end
+    if isnothing(parent(sys2))
+        return false
+    end
+    return is_ancestor(parent, sys1, parent(sys2))
+end
+is_ancestor(system::CoordinateSystem, coord::Coordinate) = is_ancestor(system, coordinate_system(coord))
+
+"""
+    permute_coords(system, coord)
+
+Check if `system` is a permutation of `coordinate_system(coord)`, and if so,
+apply that permutation to `coord`. Returns `nothing` otherwise.
+"""
+@generated function permute_coords(system::CoordinateSystem, coord::Coordinate)
+    result = Expr(:block)
+    for idx in permutations(1:n_parts(coord), n_parts(system))
+        push!(
+            result.args,
+            quote
+                let permuted_coord = (&)($(map(i -> :(parts(coord)[$i]), idx)...))
+                    if system == coordinate_system(permuted_coord)
+                        return permuted_coord
+                    end
+                end
+            end
+        )
+    end
+    push!(
+        result.args,
+        :(return nothing)
+    )
+    return result
+end
+
+
+################
+# Miscellaneous
+
+macro simple_vector_coordinate_system(Vec, Parts...)
+    Vec = esc(Vec)
+    Parts = esc.(Parts)
+    return quote
+        Core.@__doc__ const $Vec = typeof((&)($(map(Part -> :($Part()), Parts)...)))
+        $Vec() = (&)($(map(Part -> :($Part()), Parts)...))
+        function Base.show(io::IO, ::$Vec)
+            @print_var(io, $Vec)
+            return print(io, "()")
+        end
+    end
+end
+
 
 ###########################
-# Coordinate combinations
+# Concrete implementations
 
-@ampersand @coordinate_combo struct LongitudeLatitudeCoordinate <: SurfaceCoordinate
-    (LongitudeCoordinate, LatitudeCoordinate)
-end
-@coordinate_combo struct LatitudeLongitudeCoordinate <: SurfaceCoordinate
-    (LatitudeCoordinate, LongitudeCoordinate)
-end
+include("data.jl")
 
-@ampersand @coordinate_combo struct LongitudeAltitudeCoordinate <: GeoidlessCoordinate
-    (LongitudeCoordinate, AltitudeCoordinate)
-end
-@ampersand @coordinate_combo struct LatitudeAltitudeCoordinate <: GeoidlessCoordinate
-    (LatitudeCoordinate, AltitudeCoordinate)
-end
+struct CartesianX <: ScalarCoordinateSystem end
+struct CartesianY <: ScalarCoordinateSystem end
+struct CartesianZ <: ScalarCoordinateSystem end
 
-@ampersand @coordinate_combo struct SurfaceAltitudeCoordinate <: GeoidlessSpaceCoordinate
-    (SurfaceCoordinate, AltitudeCoordinate)
-end
-@symmetric Base.:&(c::LongitudeAltitudeCoordinate, lat::LatitudeCoordinate) =
-    (LongitudeCoordinate(c) & lat) & AltitudeCoordinate(c)
-@symmetric Base.:&(c::LatitudeAltitudeCoordinate, lon::LongitudeCoordinate) =
-    (lon & LatitudeCoordinate(c)) & AltitudeCoordinate(c)
+@simple_vector_coordinate_system(CartesianXY, CartesianX, CartesianY)
+@simple_vector_coordinate_system(Cartesian, CartesianX, CartesianY, CartesianZ)
 
-##############################################
-# Coordinate and geoid / georef combinations
-
-@iterable @ampersand @combo struct GeoidCoordinate <: Coordinate
-    (GeoidlessCoordinate, Geoid)
-end
-@symmetric Base.:&((c1, geoid)::GeoidCoordinate, c2::GeoidlessCoordinate) = (c1 & c2) & geoid
-@symmetric Base.:&(c::Coordinate, ::Geoid) = c
-coords(c::GeoidCoordinate) = coords(GeoidlessCoordinate(c))
-
-@iterable @ampersand @combo struct GeoidSpaceCoordinate <: SpaceCoordinate
-    (GeoidlessSpaceCoordinate, Geoid)
-end
-(C::Type{<:GeoidlessCoordinate})(c::GeoidSpaceCoordinate) = C(GeoidlessSpaceCoordinate(c))
-
-@iterable @ampersand @combo struct Georeffed
-    (Coordinate, Georef)
-end
-@symmetric Base.:&(coord::Coordinate, (geoid, georef)::Datum) = coord & georef
-@symmetric Base.:&(coord::GeoidlessCoordinate, (geoid, georef)::Datum) = (coord & geoid) & georef
-@symmetric Base.:&((c1, georef)::Georeffed, c2::Coordinate) = (c1 & c2) & georef
-@symmetric Base.:&((coord, georef)::Georeffed{<:GeoidlessCoordinate}, geoid::Geoid) = (coord & geoid) & georef
-coords(c::Georeffed) = coords(Coordinate(c))
-
-struct CoordinateType{C <: Coordinate} <: Coordinate end
-struct GeoidlessCoordinateType{C <: GeoidlessCoordinate} <: GeoidlessCoordinate end
-CoordinateType(C::Type{<:Coordinate}) = CoordinateType{C}()
-CoordinateType(C::Type{<:GeoidlessCoordinate}) = GeoidlessCoordinateType{C}()
-
-@symmetric Base.:&(C::Type{<:Coordinate}, geoid::Geoid) = CoordinateType(C) & geoid
-@symmetric Base.:&(C::Type{<:Coordinate}, georef::Georef) = CoordinateType(C) & georef
-@symmetric Base.:&(C::Type{<:Coordinate}, (geoid, georef)::Datum) = (C & geoid) & georef
-
-(::CoordinateType{C})(c::Coordinate) where {C} = C(c)
-(::GeoidlessCoordinateType{C})(c::GeoidlessCoordinate) where {C} = C(c)
-
-Base.show(io::IO, ::CoordinateType{C}) where {C} = print(io, C)
-Base.show(io::IO, ::GeoidlessCoordinateType{C}) where {C} = print(io, C)
-
-###########
-# Routing
-
-function convert_georef(georef1::Georef, (c, georef2)::Georeffed{SpaceCoordinate})
-    if georef1 != georef2
-        error("No conversion from $georef2 to $georef1")
-    end
-    return c & georef1
-end
-
-((C, georef)::Georeffed)(c::Georeffed{SpaceCoordinate}) = C(convert_georef(georef, c)) & georef
-function ((C, georef1)::Georeffed)((c, georef2)::Georeffed)
-    if georef1 != georef2
-        error("Georef conversion can only be done on space coordinates")
-    end
-    return C(c) & georef1
-end
-(C::Coordinate)((c, georef2)::Georeffed) = C(c)
-
-function ((C, geoid1)::GeoidCoordinate)((c, geoid2)::Union{GeoidCoordinate, GeoidSpaceCoordinate})
-    if geoid1 == geoid2
-        return C(c) & geoid1
-    else
-        return (C & geoid1)(Ecef(c))
-    end
-end
-
-(C::Type{<:LongitudeCoordinate})(c::GeoidlessSpaceCoordinate) = C(SurfaceCoordinate(c))
-(C::Type{<:LatitudeCoordinate})(c::GeoidlessSpaceCoordinate) = C(SurfaceCoordinate(c))
-
-(C::Type{<:LongitudeLatitudeCoordinate})(c::SurfaceCoordinate) = C(LongitudeCoordinate(c), LatitudeCoordinate(c))
-(C::Type{<:LatitudeLongitudeCoordinate})(c::SurfaceCoordinate) = C(LatitudeCoordinate(c), LongitudeCoordinate(c))
-
-############
-# Indexing
-
-unwrap_if_singleton(x::Tuple) = x
-unwrap_if_singleton((x,)::NTuple{1}) = x
-
-function Base.getindex(
-    c::Georeffed,
-    C::Georeffed{<:Union{Type{<:Coordinate}, GeoidCoordinate{<:GeoidlessCoordinateType}}},
-)
-    return unwrap_if_singleton(coords(C(c)))
-end
-function Base.getindex(c::Coordinate, C::Union{Type{<:Coordinate}, GeoidCoordinate{<:GeoidlessCoordinateType}})
-    return unwrap_if_singleton(coords(C(c)))
-end
-Base.getindex(c::Coordinate, C::Type{<:GeoidlessCoordinate}) = throw(MethodError(Base.getindex, (c, C)))
-Base.getindex(c::GeoidlessCoordinate, C::Type{<:GeoidlessCoordinate}) = unwrap_if_singleton(coords(C(c)))
-
-#############################
-# Concrete coordinate types
-
-@coordinate_number_tuple(Ecef <: SpaceCoordinate, 3)
-@coordinate_number_tuple(Alt <: AltitudeCoordinate, 1)
-
-@coordinate_number_tuple(Lon <: LongitudeCoordinate, 1)
-@coordinate_number_tuple(Lat <: LatitudeCoordinate, 1)
-
-@named_coordinate_combo LonLat = LongitudeLatitudeCoordinate{Lon, Lat}
-@named_coordinate_combo LonLatAlt = SurfaceAltitudeCoordinate{LonLat, Alt}
-@named_coordinate_combo LatLon = LatitudeLongitudeCoordinate{Lat, Lon}
-@named_coordinate_combo LatLonAlt = SurfaceAltitudeCoordinate{LatLon, Alt}
-
-@coordinate_number_tuple(WmX <: LongitudeCoordinate, 1)
-@coordinate_number_tuple(WmY <: LatitudeCoordinate, 1)
-@named_coordinate_combo WebMercator = LongitudeLatitudeCoordinate{WmX, WmY}
-@named_coordinate_combo WebMercatorAlt = SurfaceAltitudeCoordinate{WebMercator, Alt}
-
-(C::Type{<:Lon})((wmx,)::WmX) = C(wmx * 180)
-(C::Type{<:WmX})((lon,)::Lon) = C(lon / 180)
-(C::Type{<:WmX})(c::LongitudeCoordinate) = C(Lon(c))
-
-(C::Type{<:Lat})((wmy,)::WmY) = C(2 * atand(exp(π * wmy)) - 90)
-function (C::Type{<:WmY})((lat,)::Lat)
-    @assert abs(lat) <= 90
-    return C(log(tand((lat + 90) / 2)) / π)
-end
-(C::Type{<:WmY})(c::LatitudeCoordinate) = C(Lat(c))
+include("geocentric.jl")
+include("geodetic.jl")
+include("webmercator.jl")
+include("local.jl")
 
 end

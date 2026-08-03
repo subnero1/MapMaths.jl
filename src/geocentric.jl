@@ -1,0 +1,134 @@
+"""
+    Longitude()
+
+Angle in degrees between the prime meridian and the meridian plane of the point.
+East is positive, west is negative.
+"""
+struct Longitude <: ScalarCoordinateSystem end
+
+"""
+    CylindricalRadius()
+
+Distance in meters from the Z-axis.
+"""
+struct CylindricalRadius <: ScalarCoordinateSystem end
+
+"""
+    Radius()
+
+Distance in meters from the origin.
+"""
+struct Radius <: ScalarCoordinateSystem end
+
+"""
+    GeocentricLatitude()
+
+Angle in degrees between the equatorial plane and the line from the origin.
+North is positive, south is negative.
+"""
+struct GeocentricLatitude <: ScalarCoordinateSystem end
+
+"""
+    GeocentricAltitude()
+
+Distance in meters from the surface of the reference ellipsoid along the line to the origin.
+"""
+struct GeocentricAltitude <: ScalarCoordinateSystem end
+
+"""
+    Cylindrical() = Longitude() & CylindricalRadius() & CartesianZ()
+"""
+@simple_vector_coordinate_system(Cylindrical, Longitude, CylindricalRadius, CartesianZ)
+
+"""
+    Spherical() = Longitude() & GeocentricLatitude() & Radius()
+"""
+@simple_vector_coordinate_system(Spherical, Longitude, GeocentricLatitude, Radius)
+
+"""
+    GeocentricLonLat() = Longitude() & GeocentricLatitude()
+"""
+@simple_vector_coordinate_system(GeocentricLonLat, Longitude, GeocentricLatitude)
+
+"""
+    GeocentricLatLon() = GeocentricLatitude() & Longitude()
+"""
+@simple_vector_coordinate_system(GeocentricLatLon, GeocentricLatitude, Longitude)
+
+"""
+    GeocentricLatAlt() = GeocentricLatitude() & GeocentricAltitude()
+"""
+@simple_vector_coordinate_system(GeocentricLatAlt, GeocentricLatitude, GeocentricAltitude)
+
+"""
+    GeocentricLonLatAlt() = Longitude() & GeocentricLatitude() & GeocentricAltitude()
+"""
+@simple_vector_coordinate_system(GeocentricLonLatAlt, Longitude, GeocentricLatitude, GeocentricAltitude)
+
+"""
+    GeocentricLatLonAlt() = GeocentricLatitude() & Longitude() & GeocentricAltitude()
+"""
+@simple_vector_coordinate_system(GeocentricLatLonAlt, GeocentricLatitude, Longitude, GeocentricAltitude)
+
+const Lon = Longitude
+const GeocentricLat = GeocentricLatitude
+const GeocentricAlt = GeocentricAltitude
+
+###
+
+lossy_parent(::Longitude) = CartesianXY()
+lossy_parent(::CylindricalRadius) = CartesianXY()
+lossy_parent(::Radius) = CylindricalRadius() & CartesianZ()
+lossy_parent(::GeocentricLatitude) = CylindricalRadius() & CartesianZ()
+lossy_parent(::GeocentricAltitude) = GeocentricLatitude() & Radius()
+
+@symmetric lossless_parent(::Longitude, ::CylindricalRadius) = CartesianXY()
+@symmetric lossless_parent(::GeocentricLatitude, ::Radius) = CylindricalRadius() & CartesianZ()
+@symmetric lossless_parent(::GeocentricLatitude, ::GeocentricAltitude) = GeocentricLatitude() & Radius()
+@symmetric lossless_parent(::CylindricalRadius, ::CartesianZ) = Cartesian()
+
+@symmetric lossless_parent(::Longitude, ::GeocentricLatitude, ::GeocentricAltitude) = Longitude() & GeocentricLatitude() & Radius()
+@symmetric lossless_parent(::Longitude, ::GeocentricLatitude, ::Radius) = Longitude() & CylindricalRadius() & CartesianZ()
+@symmetric lossless_parent(::Longitude, ::CylindricalRadius, ::CartesianZ) = CartesianX() & CartesianY() & CartesianZ()
+
+###
+
+cmap_impl(::Longitude, (x, y)::Coordinate{CartesianXY}) = atand(y, x)
+cmap_impl(::CylindricalRadius, (x, y)::Coordinate{CartesianXY}) = hypot(x, y)
+cmap_impl(::CylindricalRadius, (lat, r)::Coordinate(GeocentricLatitude() & Radius())) = r * cosd(lat)
+cmap_impl(::CartesianZ, (lat, r)::Coordinate(GeocentricLatitude() & Radius())) = r * sind(lat)
+cmap_impl(::Radius, (x, y, z)::Coordinate{Cartesian}) = hypot(x, y, z)
+cmap_impl(::Radius, (r, z)::Coordinate(CylindricalRadius() & CartesianZ())) = hypot(r, z)
+
+function cmap_impl(::Radius, (lat, alt)::Coordinate(GeocentricLatitude() & GeocentricAltitude()), datum)
+    (s, c) = sincosd(lat)
+    (a, b) = datum[SemiMajorAxis], datum[SemiMinorAxis]
+    return alt + sqrt((a * b)^2 / ((b * c)^2 + (a * s)^2))
+end
+
+cmap_impl(::GeocentricLatitude, (r, z)::Coordinate(CylindricalRadius() & CartesianZ())) = atand(z, r)
+
+function cmap_impl(::GeocentricAltitude, (lat, r)::Coordinate(GeocentricLatitude() & Radius()), datum)
+    (s, c) = sincosd(lat)
+    (a, b) = datum[SemiMajorAxis], datum[SemiMinorAxis]
+    return r - sqrt((a * b)^2 / ((b * c)^2 + (a * s)^2))
+end
+
+function cmap_impl(::typeof(GeocentricLatitude() & GeocentricAltitude()), c::Coordinate(CylindricalRadius() & CartesianZ()), datum)
+    lat = cmap_impl(GeocentricLatitude(), c)
+    rad = cmap_impl(Radius(), c)
+    alt = cmap_impl(GeocentricAltitude(), coord(GeocentricLatitude() & Radius(), lat, rad), datum)
+    return (lat, alt)
+end
+
+cmap_impl(::CartesianXY, (lon, r)::Coordinate(Longitude() & CylindricalRadius())) = r .* reverse(sincosd(lon))
+
+function cmap_impl(::Cartesian, (lon, lat, r)::Coordinate(Longitude() & GeocentricLatitude() & Radius()))
+    sin_lon, cos_lon = sincosd(lon)
+    sin_lat, cos_lat = sincosd(lat)
+    return (
+        r * cos_lat * cos_lon,
+        r * cos_lat * sin_lon,
+        r * sin_lat,
+    )
+end

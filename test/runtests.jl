@@ -1,109 +1,80 @@
 using MapMaths
 using Test
+using Documenter
+using Combinatorics
+using StaticArrays
 
-@testset "Number constructors" begin
-    Lon(1)
-    LonLat(1, 2)
-    LonLatAlt(1, 2, 3)
-
-    @test MapMaths.numtype(Lon(1)) == Float64
-    @test MapMaths.numtype(Lon{Int}(1)) == Int
-    @test MapMaths.numtype(Lon(1.0f0)) == Float32
-
-    @test MapMaths.numtype(LonLat(1, 2)) == Float64
-    @test MapMaths.numtype(LonLat(1, 2.0f0)) == Float32
-    @test MapMaths.numtype(LonLat(1.0f0, 2.0f0)) == Float32
-    @test MapMaths.numtype(LonLat(1.0f0, 2.0)) == Float64
-    @test MapMaths.numtype(LonLat{Int}(1, 2)) == Int
-    @test MapMaths.numtype(LonLat{Int}(1.0, 2.0)) == Int
+function test_oneway_cmap(input, output, maybe_datum...; atol = 0, rtol = 0)
+    for n in 1:MapMaths.n_parts(output)
+        for parts in combinations(MapMaths.parts(output), n)
+            expected = (&)(parts...)
+            @test isapprox(SVector(cmap(coordinate_system(expected), input, maybe_datum...)...), SVector(expected...); atol, rtol)
+        end
+    end
+    return
 end
 
-@testset "Combinations" begin
-    @test Lon(1) & Lat(2) == Lat(2) & Lon(1) == LonLat(1, 2)
-    @test Lon(1) & Lat(2) & Alt(3) ==
-          Lon(1) & Alt(3) & Lat(2) ==
-          Lat(2) & Lon(1) & Alt(3) ==
-          Lat(2) & Alt(3) & Lon(1) ==
-          Alt(3) & Lon(1) & Lat(2) ==
-          Alt(3) & Lat(2) & Lon(1) ==
-          LonLatAlt(1, 2, 3)
-
-    @test Wgs84() & Lon(1) == Lon(1) & Wgs84()
-    @test Lon(1) & Wgs84() & Lat(2) == Wgs84() & Lon(1) & Lat(2) == LonLat(1, 2) & Wgs84()
-    @test Lon(1) & Lat(2) & Wgs84() & Alt(3) ==
-          Lon(1) & Wgs84() & Lat(2) & Alt(3) ==
-          Wgs84() & Lon(1) & Lat(2) & Alt(3) ==
-          LonLatAlt(1, 2, 3) & Wgs84()
-    @test Ecef(1, 2, 3) & Wgs84() ==
-          Ecef(1, 2, 3) & Wgs84Georef() ==
-          Wgs84() & Ecef(1, 2, 3) ==
-          Wgs84Georef() & Ecef(1, 2, 3)
+function test_cmap(c1, c2, maybe_datum...)
+    test_oneway_cmap(c1, c2, maybe_datum...)
+    test_oneway_cmap(c2, c1, maybe_datum...)
+    return
 end
 
-@testset "Conversion constructors" begin
-    @test Lon(LonLat(1, 2)) == Lon(1)
-    @test Lon(LatLon(1, 2)) == Lon(2)
-    @test Lon(LonLatAlt(1, 2, 3)) == Lon(1)
-    @test Lon(LatLonAlt(1, 2, 3)) == Lon(2)
-    @test Alt(LonLatAlt(1, 2, 3)) == Alt(3)
-    @test LonLat(LonLatAlt(1, 2, 3)) == LonLat(1, 2)
-    @test LonLat(LatLonAlt(1, 2, 3)) == LonLat(2, 1)
+DocMeta.setdocmeta!(
+    MapMaths,
+    :DocTestSetup,
+    quote
+        using MapMaths
+        using MapMaths: numtype, parts, flatten, @symmetric
+    end;
+    recursive = true,
+)
+doctest(MapMaths; manual = false)
 
-    @test Lon(LonLat(1, 2) & Wgs84()) == Lon(1)
-    @test Lon(LatLon(1, 2) & Wgs84()) == Lon(2)
-    @test Lon(LonLatAlt(1, 2, 3) & Wgs84()) == Lon(1)
-    @test Lon(LatLonAlt(1, 2, 3) & Wgs84()) == Lon(2)
-    @test Alt(LonLatAlt(1, 2, 3) & Wgs84()) == Alt(3)
-    @test LonLat(LonLatAlt(1, 2, 3) & Wgs84()) == LonLat(1, 2)
-    @test LonLat(LatLonAlt(1, 2, 3) & Wgs84()) == LonLat(2, 1)
+@testset "geocentric" begin
+    test_cmap(Coordinate(Cylindrical(), 0, 1, 2), Coordinate(Cartesian(), 1, 0, 2))
+    test_cmap(Coordinate(Cylindrical(), 90, 1, 2), Coordinate(Cartesian(), 0, 1, 2))
 
-    @test (Lon & Wgs84())(LonLat(1, 2) & Wgs84()) == Lon(1) & Wgs84()
-    @test (Lon & Wgs84())(LatLon(1, 2) & Wgs84()) == Lon(2) & Wgs84()
-    @test (Lon & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == Lon(1) & Wgs84()
-    @test (Lon & Wgs84())(LatLonAlt(1, 2, 3) & Wgs84()) == Lon(2) & Wgs84()
-    @test (Alt & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == Alt(3) & Wgs84()
-    @test (LonLat & Wgs84())(LonLatAlt(1, 2, 3) & Wgs84()) == LonLat(1, 2) & Wgs84()
-    @test (LonLat & Wgs84())(LatLonAlt(1, 2, 3) & Wgs84()) == LonLat(2, 1) & Wgs84()
+    test_cmap(Coordinate(Spherical(), 0, 0, 1), Coordinate(Cartesian(), 1, 0, 0))
+    test_cmap(Coordinate(Spherical(), 90, 0, 1), Coordinate(Cartesian(), 0, 1, 0))
+    test_cmap(Coordinate(Spherical(), 0, 90, 1), Coordinate(Cartesian(), 0, 0, 1))
+
+    test_cmap(Coordinate(Spherical(), 0, 0, 1), Coordinate(Cylindrical(), 0, 1, 0))
+    test_cmap(Coordinate(Spherical(), 0, 90, 1), Coordinate(Cylindrical(), 0, 0, 1))
+
+    test_cmap(Coordinate(GeocentricLonLatAlt(), 0, 0, 0), Coordinate(Cartesian(), Wgs84()[SemiMajorAxis], 0, 0), Wgs84())
+    test_cmap(Coordinate(GeocentricLonLatAlt(), 0, 0, 1), Coordinate(Cartesian(), Wgs84()[SemiMajorAxis] + 1, 0, 0), Wgs84())
 end
 
-@testset "getindex" begin
-    @test Lon(1)[Lon] == 1
-    @test LonLat(1, 2)[Lon] == 1
-    @test LonLat(1, 2)[Lat] == 2
-    @test LonLatAlt(1, 2, 3)[Lon] == 1
-    @test LonLatAlt(1, 2, 3)[Lat] == 2
-    @test LonLatAlt(1, 2, 3)[Alt] == 3
-
-    @test (Lon(1)&Wgs84Spheroid())[Lon&Wgs84Spheroid()] == 1
-    @test (LonLat(1, 2)&Wgs84Spheroid())[Lon&Wgs84Spheroid()] == 1
-    @test (LonLat(1, 2)&Wgs84Spheroid())[Lat&Wgs84Spheroid()] == 2
-    @test (LonLatAlt(1, 2, 3)&Wgs84Spheroid())[Lon&Wgs84Spheroid()] == 1
-    @test (LonLatAlt(1, 2, 3)&Wgs84Spheroid())[Lat&Wgs84Spheroid()] == 2
-    @test (LonLatAlt(1, 2, 3)&Wgs84Spheroid())[Alt&Wgs84Spheroid()] == 3
-
-    @test (Lon(1)&Wgs84())[Lon&Wgs84()] == 1
-    @test (LonLat(1, 2)&Wgs84())[Lon&Wgs84()] == 1
-    @test (LonLat(1, 2)&Wgs84())[Lat&Wgs84()] == 2
-    @test (LonLatAlt(1, 2, 3)&Wgs84())[Lon&Wgs84()] == 1
-    @test (LonLatAlt(1, 2, 3)&Wgs84())[Lat&Wgs84()] == 2
-    @test (LonLatAlt(1, 2, 3)&Wgs84())[Alt&Wgs84()] == 3
-
-    @test_throws MethodError (Lon(1)&Wgs84Spheroid())[Lon]
-    @test_throws MethodError (Lon(1))[Lon&Wgs84Spheroid()]
-    @test_throws MethodError (Lon(1)&Wgs84())[Lon]
-    @test_throws MethodError (Lon(1)&Wgs84())[Lon&Wgs84Spheroid()]
-    @test_throws MethodError (Lon(1)&Wgs84())[Lon&Wgs84Georef()]
-    @test_throws MethodError (Ecef(1, 2, 3)&Wgs84())[Ecef]
-    @test_throws MethodError (Lon(1))[Lon&Wgs84()]
-    @test_throws MethodError (Lon(1)&Wgs84Spheroid())[Lon&Wgs84()]
-    @test_throws MethodError (Lon(1)&Wgs84Georef())[Lon&Wgs84()]
-    @test_throws MethodError (Ecef(1, 2, 3))[Ecef&Wgs84()]
+@testset "geodetic" begin
+    test_cmap(Coordinate(LonLatAlt(), 0, 0, 0), Coordinate(Cartesian(), Wgs84()[SemiMajorAxis], 0, 0), Wgs84())
+    test_cmap(Coordinate(LonLatAlt(), 0, 0, 1), Coordinate(Cartesian(), Wgs84()[SemiMajorAxis] + 1, 0, 0), Wgs84())
+    test_cmap(Coordinate(LonLatAlt(), 0, 90, 0), Coordinate(Cartesian(), 0, 0, Wgs84()[SemiMinorAxis]), Wgs84())
 end
 
-@testset "show" begin
-    @test repr(Lon(1)) == "Lon{Float64}(1.0)"
-    @test repr(LonLat(1, 2)) == "LonLat{Float64}(1.0, 2.0)"
-    @test repr(LonLatAlt(1, 2, 3)) == "LonLatAlt{Float64}(1.0, 2.0, 3.0)"
-    @test repr(Lon(1) & Wgs84()) == "Lon{Float64}(1.0) & Wgs84Spheroid() & Wgs84Georef()"
-    @test repr(Lon & Wgs84()) == "Lon & Wgs84Spheroid() & Wgs84Georef()"
+@testset "webmercator" begin
+    test_cmap(Coordinate(WebMercator(), 0, 0), Coordinate(LonLat(), 0, 0))
+    test_cmap(Coordinate(WebMercator(), 0.5, 0), Coordinate(LonLat(), 90, 0))
+    test_cmap(Coordinate(WebMercator(), 0, Inf), Coordinate(LonLat(), 0, 90))
+    test_cmap(Coordinate(WebMercatorAlt(), 0, 0, 0), Coordinate(LonLatAlt(), 0, 0, 0))
+    test_cmap(Coordinate(WebMercatorAlt(), 0.5, 0, 0), Coordinate(LonLatAlt(), 90, 0, 0))
+    test_cmap(Coordinate(WebMercatorAlt(), 0, Inf, 0), Coordinate(LonLatAlt(), 0, 90, 0))
+end
+
+@testset "local" begin
+    test_cmap(Coordinate(AzimuthElevationRange(), 0, 0, 1), Coordinate(EastNorthUp(), 0, 1, 0))
+    test_cmap(Coordinate(AzimuthElevationRange(), 90, 0, 1), Coordinate(EastNorthUp(), 1, 0, 0))
+    test_cmap(Coordinate(AzimuthElevationRange(), 0, 90, 1), Coordinate(EastNorthUp(), 0, 0, 1))
+
+    test_cmap(Coordinate(Origin(Wgs84(), LonLatAlt(), 0, 0, 0) + EastNorthUp(), 1, 0, 0), Coordinate(Cartesian(), Wgs84()[SemiMajorAxis], 1, 0), Wgs84())
+    test_cmap(Coordinate(Origin(Wgs84(), LonLatAlt(), 0, 0, 0) + EastNorthUp(), 0, 1, 0), Coordinate(Cartesian(), Wgs84()[SemiMajorAxis], 0, 1), Wgs84())
+    test_cmap(Coordinate(Origin(Wgs84(), LonLatAlt(), 0, 0, 0) + EastNorthUp(), 0, 0, 1), Coordinate(Cartesian(), Wgs84()[SemiMajorAxis] + 1, 0, 0), Wgs84())
+    test_cmap(Coordinate(Origin(Wgs84(), LonLatAlt(), 90, 0, 0) + EastNorthUp(), 1, 0, 0), Coordinate(Cartesian(), -1, Wgs84()[SemiMajorAxis], 0), Wgs84())
+    test_cmap(Coordinate(Origin(Wgs84(), LonLatAlt(), 90, 0, 0) + EastNorthUp(), 0, 1, 0), Coordinate(Cartesian(), 0, Wgs84()[SemiMajorAxis], 1), Wgs84())
+    test_cmap(Coordinate(Origin(Wgs84(), LonLatAlt(), 90, 0, 0) + EastNorthUp(), 0, 0, 1), Coordinate(Cartesian(), 0, Wgs84()[SemiMajorAxis] + 1, 0), Wgs84())
+
+    test_cmap(
+        Coordinate(Origin(Wgs84(), LonLatAlt(), 0, 0, 0) + EastNorthUp(), Wgs84()[SemiMajorAxis], 0, 0),
+        Coordinate(Origin(Wgs84(), LonLatAlt(), 90, 0, 0) + AzimuthElevationRange(), -90, 0, Wgs84()[SemiMajorAxis]),
+    )
 end
