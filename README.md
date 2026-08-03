@@ -2,7 +2,7 @@
 
 Fast and flexible coordinate conversions for Julia.
 
-⚠️ WARNING️: This package is currently in an experimental phase. See [below](#history-outlook--alternatives) for details. 
+**WARNING:** This package is currently in an experimental phase. See [below](#history-outlook--alternatives) for details. 
 
 
 ## How Does It Work?
@@ -130,7 +130,7 @@ ERROR: Cannot convert from CartesianX() & CartesianZ() & CartesianY() to Geodeti
 
 ## History, Outlook & Alternatives
 
-The main goal of MapMaths v0.1 was to sand away some of the rough edges of [Geodesy.jl](https://github.com/JuliaGeo/Geodesy.jl), but this goal has since been achieved with much better feature-completeness in [CoordRefSystems.jl](https://github.com/JuliaEarth/CoordRefSystems.jl). Correspondingly, the current version v0.2 instead focuses on prototyping an implementation that makes it economical to support a much larger share of partial coordinate conversions (e.g. `GeocentricLatAlt()` to `GeodeticLat()`) while guaranteeing transitive closure (if you can convert `A` to `B` and `B` to `C`, then you can also directly convert `A` to `C`). This implementation is currently still experimental. We hope that we can join forces with the Geodesy and CoordRefSystems communities if and when it stabilises. 
+The main goal of MapMaths v0.1 was to sand away some of the rough edges of [Geodesy.jl](https://github.com/JuliaGeo/Geodesy.jl), but this goal has since been achieved with much better feature-completeness in [CoordRefSystems.jl](https://github.com/JuliaEarth/CoordRefSystems.jl). Correspondingly, the current version v0.2 instead focuses on prototyping a framework that makes it economical to support a much larger share of partial coordinate conversions (e.g. `GeocentricLatAlt()` to `GeodeticLat()`) while guaranteeing transitive closure (if you can convert `A` to `B` and `B` to `C`, then you can also directly convert `A` to `C`). This framework is currently still experimental. We hope that we can join forces with the Geodesy and CoordRefSystems communities if and when it stabilises. 
 
 
 ## Under The Hood
