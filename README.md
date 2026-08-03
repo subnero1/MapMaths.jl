@@ -35,7 +35,7 @@ Fast and flexible coordinate conversions for Julia.
     julia> Tuple(cartesian_coords)
     (-1.5268872205890939e6, 6.19103341816399e6, 142271.98546019828)
     ```
-    Extraction is based on iterating the coordinate object and can also be used in other ways. 
+    Extraction is based on iterating the coordinate object. This mechanism can also be used in other ways. 
     ```julia
     julia> x,y,z = cartesian_coords; (x,y,z)
     (-1.5268872205890939e6, 6.19103341816399e6, 142271.98546019828)
