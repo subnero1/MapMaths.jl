@@ -2,7 +2,7 @@
 
 Fast and flexible coordinate conversions for Julia.
 
-⚠️ WARNING ⚠️: This package is currently in an experimental phase. See [below](#outlook) for details. 
+⚠️ WARNING️: This package is currently in an experimental phase. See [below](#history-outlook--alternatives) for details. 
 
 
 ## How Does It Work?
@@ -56,7 +56,7 @@ Fast and flexible coordinate conversions for Julia.
 - Spherical: `Spherical() = Longitude() & GeocentricLatitude() & Radius()`
 
 - Geocentric LatLonAlt: `GeocentricLonLatAlt() = Longitude() & GeocentricLatitude() & GeocentricAltitude()`
-
+  <br>
   Analogously: `GeocentricLatLonAlt()`, `GeocentricLonLat()`, `GeocentricLatLon()`, `GeocentricLatAlt()`
 
   `GeocentricAltitude()` is defined as the distance to the reference ellipsoid along the line to the centre of the earth. This is conceptually different from the `GeodeticAltitude()`, but in practice the difference is tiny. 
@@ -67,13 +67,13 @@ Fast and flexible coordinate conversions for Julia.
   ```
 
 - Geodetic LatLonAlt: `GeodeticLonLatAlt() = Longitude() & GeodeticLatitude() & GeodeticAltitude()`
-
+  <br>
   Analogously: `GeodeticLatLonAlt()`, `GeodeticLonLat()`, `GeodeticLatLon()`, `GeodeticLatAlt()`
 
-  Abbreviations: `Lon() = Longitude()`, `Lat() = GeodeticLatitude()`, `Alt() = GeodeticAltitude()`, and all the above combinations without the `Geodetic` prefix (e.g. `LonLat()`). We recommend to use the abbreviations in codes that use only the geodetic coordinate systems but to add the `Geodetic` prefix for extra clarity in codes which use both geodetic and geocentric coordinate systems. 
+  Abbreviations: `Lon() = Longitude()`, `Lat() = GeodeticLatitude()`, `Alt() = GeodeticAltitude()`, and all the above combinations without the `Geodetic` prefix (e.g. `LonLat()`). We recommend to omit the `Geodetic` prefix in codes that use only the geodetic coordinate systems but to add it for extra clarity in codes which use both geodetic and geocentric coordinate systems. 
 
 - WebMercator: `WebMercatorAlt() = WmX() & WmY() & GeodeticAltitude()`
-
+  <br>
   Analogously: `WebMercator() = WmX() & WmY()`. 
 
   The WebMercator coordinates are scaled so that `Coordinate(Lon(), 180)` is mapped to `Coordinate(WmX(), 1.0)`. 
@@ -99,7 +99,9 @@ Coordinate(Cartesian(), 6.378137e6, 1.0, 0.0)
 
 ## Data
 
-Some coordinate transformations require a geodetic datum (a mathematical model of the Earth). MapMaths currently implements only one datum, namely `Wgs84()`. See [`src/data.jl`](src/data.jl) for how to add your own data. MapMaths currently does not support datum conversions. 
+Some coordinate transformations require a geodetic datum (a mathematical model of the Earth). MapMaths currently implements only one datum, namely `Wgs84()`. See [`src/data.jl`](src/data.jl) for how to add your own data. 
+
+MapMaths currently does not support datum conversions. 
 
 
 ## Notes
@@ -126,7 +128,6 @@ ERROR: Cannot convert from CartesianX() & CartesianZ() & CartesianY() to Geodeti
 ```
 
 
-<a name="history"></a>
 ## History, Outlook & Alternatives
 
 The main goal of MapMaths v0.1 was to sand away some of the rough edges of [Geodesy.jl](https://github.com/JuliaGeo/Geodesy.jl), but this goal has since been achieved with much better feature-completeness in [CoordRefSystems.jl](https://github.com/JuliaEarth/CoordRefSystems.jl). Correspondingly, the current version v0.2 instead focuses on prototyping an implementation that makes it economical to support a much larger share of partial coordinate conversions (e.g. `GeocentricLatAlt()` to `GeodeticLat()`) while guaranteeing transitive closure (if you can convert `A` to `B` and `B` to `C`, then you can also directly convert `A` to `C`). This implementation is currently still experimental. We hope that we can join forces with the Geodesy and CoordRefSystems communities if and when it stabilises. 
