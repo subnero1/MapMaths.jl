@@ -71,7 +71,7 @@ include("utils.jl")
 include("ellipses.jl")
 
 # The following functions are faster but less accurate than their Base
-# counterparts.  Uncomment them for fair comparisons against packages which use
+# counterparts. Uncomment them for fair comparisons against packages which use
 # these fast definitions (e.g. CoordRefSystems.jl).
 # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 # sind(x) = sin(deg2rad(x))
