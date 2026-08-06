@@ -290,8 +290,15 @@ Notable operations:
   `Ellipse(datum)[EllipseParameter]`.
 """
 abstract type Datum end
-
 Base.getindex(datum::Datum, P::Type{<:EllipseParameter}) = Ellipse(datum)[P]
+
+"""
+    NoDatum <: Datum
+
+Placeholder indicating that no datum has been provided to a conversion function.
+"""
+struct NoDatum <: Datum end
+Ellipse(::NoDatum) = error("Conversion requires a datum.")
 
 #####################
 # Scalar coordinates
@@ -350,183 +357,22 @@ julia> cmap(Longitude(), Coordinate(CartesianXY(), 0, 1))
 Coordinate(Longitude(), 90.0)
 ```
 """
-function cmap end
+function cmap(system::CoordinateSystem, coord::Coordinate, datum = NoDatum())
+    return @something(
+        permute_coords(system, coord),
+        apply_cmap_impl(system, coord, datum),
+        bump_system(system, coord, datum),
+        bump_coord(system, coord, datum),
+        error("Cannot convert from $(coordinate_system(coord)) to $system. Please raise an issue if you think this is a bug.")
+    )
+end
 
 """
-    cmap_impl(system, coord, [datum])
+    cmap_impl(system, coord, datum)
 
-Coordinate conversion rules to be used by [`cmap()`](@ref). 
+Coordinate conversion rules to be used by [`cmap()`](@ref).
 """
 function cmap_impl end
-
-for (maybe_datum, maybe_datum_arg) in (
-        ((), ()),
-        ((:datum,), (:(datum::Datum),)),
-    )
-    @eval begin
-        function cmap(system::CoordinateSystem, coord::Coordinate, $(maybe_datum_arg...))
-            return @something(
-                permute_coords(system, coord),
-                apply_cmap_impl(system, coord, $(maybe_datum...)),
-                bump_system(system, coord, $(maybe_datum...)),
-                bump_coord(system, coord, $(maybe_datum...)),
-                error("Cannot convert from $(coordinate_system(coord)) to $system. Please raise an issue if you think this is a bug.")
-            )
-        end
-
-        # Check whether there exists a `cmap_impl()` method for any subset of
-        # `system` and `coord` components, and if so, apply it and return the
-        # result. Returns `nothing` otherwise.
-        @generated function apply_cmap_impl(system::CoordinateSystem, coord::Coordinate, $(maybe_datum_arg...))
-            result = Expr(:block)
-            for n_systems in reverse(1:n_parts(system)),
-                    n_coords in 1:n_parts(coord),
-                    system_idx in permutations(1:n_parts(system), n_systems),
-                    coord_idx in permutations(1:n_parts(coord), n_coords)
-                remainder = if n_systems < n_parts(system)
-                    (
-                        :(
-                            cmap(
-                                (&)($(map(i -> :(parts(system)[$i]), setdiff(1:n_parts(system), system_idx))...)),
-                                coord,
-                                $($maybe_datum...)
-                            )
-                        ),
-                    )
-                else
-                    ()
-                end
-                push!(
-                    result.args,
-                    quote
-                        let permuted_system = (&)($(map(i -> :(parts(system)[$i]), system_idx)...)),
-                                permuted_coord = (&)($(map(i -> :(parts(coord)[$i]), coord_idx)...))
-                            if Core._hasmethod( # https://discourse.julialang.org/t/method-lookup-in-generated-functions/138047/6
-                                    Tuple{
-                                        typeof(cmap_impl),
-                                        typeof(permuted_system),
-                                        typeof(permuted_coord),
-                                    }
-                                )
-                                return cmap(
-                                    system,
-                                    (&)(
-                                        Coordinate(
-                                            permuted_system,
-                                            cmap_impl(permuted_system, permuted_coord),
-                                        ),
-                                        $(remainder...),
-                                    ),
-                                )
-                            end
-                            $(
-                                if length($maybe_datum) > 0
-                                    :(
-                                        if Core._hasmethod(
-                                                Tuple{
-                                                    typeof(cmap_impl),
-                                                    typeof(permuted_system),
-                                                    typeof(permuted_coord),
-                                                    typeof($($maybe_datum...)),
-                                                }
-                                            )
-                                            return cmap(
-                                                system,
-                                                (&)(
-                                                    Coordinate(
-                                                        permuted_system,
-                                                        cmap_impl(permuted_system, permuted_coord, $($maybe_datum...)),
-                                                    ),
-                                                    $(remainder...),
-                                                ),
-                                            )
-                                        end
-                                    )
-                                else
-                                    :(
-                                        if Core._hasmethod(
-                                                Tuple{
-                                                    typeof(cmap_impl),
-                                                    typeof(permuted_system),
-                                                    typeof(permuted_coord),
-                                                    Datum,
-                                                }
-                                            )
-                                            error("Conversion from $(coordinate_system(coord)) to $(system) requires a datum.")
-                                        end
-                                    )
-                                end
-                            )
-                        end
-                    end
-                )
-            end
-            push!(
-                result.args,
-                :(return nothing)
-            )
-            return result
-        end
-
-        # Route via `lossy_parent(system)`. Returns nothing if `system` has no parent.
-        function bump_system(system::CoordinateSystem, coord::Coordinate, $(maybe_datum_arg...))
-            if (
-                    !isnothing(lossy_parent(system))
-                        && !is_ancestor(lossless_parent, system, coordinate_system(coord))
-                        && !is_set_equal(parts(lossy_parent(system)), parts(coordinate_system(coord)))
-                )
-                return cmap(
-                    system,
-                    cmap(
-                        lossy_parent(system),
-                        coord,
-                        $(maybe_datum...)
-                    ),
-                    $(maybe_datum...)
-                )
-            end
-            return nothing
-        end
-
-        # Route via `lossless_parent(coord)`. Returns nothing if `coord` has no parent.
-        function bump_coord(system::CoordinateSystem, coord::Coordinate, $(maybe_datum_arg...))
-            if (
-                    !isnothing(lossless_parent(coord))
-                        && !is_ancestor(lossy_parent, coordinate_system(coord), system)
-                        && !is_set_equal(parts(system), parts(lossless_parent(coord)))
-                )
-                return cmap(
-                    system,
-                    cmap(
-                        lossless_parent(coord),
-                        coord,
-                        $(maybe_datum...)
-                    ),
-                    $(maybe_datum...)
-                )
-            end
-            return nothing
-        end
-    end
-end
-
-"""
-    is_ancestor(parent, sys1, sys2)
-
-Check whether `sys1` is an ancestor of `sys2` according to the `parent` relation. 
-
-See also [`lossy_parent`](@ref) and [`lossless_parent`](@ref).
-"""
-function is_ancestor(parent, sys1::CoordinateSystem, sys2::CoordinateSystem)
-    if issubset(parts(sys2), parts(sys1))
-        return true
-    end
-    if isnothing(parent(sys2))
-        return false
-    end
-    return is_ancestor(parent, sys1, parent(sys2))
-end
-is_ancestor(system::CoordinateSystem, coord::Coordinate) = is_ancestor(system, coordinate_system(coord))
 
 """
     permute_coords(system, coord)
@@ -555,6 +401,134 @@ apply that permutation to `coord`. Returns `nothing` otherwise.
     return result
 end
 
+"""
+    apply_cmap_impl(system, coord, datum)
+
+Check whether there exists a `cmap_impl()` method for any subset of
+`system` and `coord` components. If so, apply it and return the
+result, otherwise return `nothing`.
+"""
+@generated function apply_cmap_impl(system::CoordinateSystem, coord::Coordinate, datum::Datum)
+    result = Expr(:block)
+    for n_systems in reverse(1:n_parts(system)),
+            n_coords in 1:n_parts(coord),
+            system_idx in permutations(1:n_parts(system), n_systems),
+            coord_idx in permutations(1:n_parts(coord), n_coords)
+        remainder = if n_systems < n_parts(system)
+            (
+                :(
+                    cmap(
+                        (&)($(map(i -> :(parts(system)[$i]), setdiff(1:n_parts(system), system_idx))...)),
+                        coord,
+                        datum,
+                    )
+                ),
+            )
+        else
+            ()
+        end
+        push!(
+            result.args,
+            quote
+                let permuted_system = (&)($(map(i -> :(parts(system)[$i]), system_idx)...)),
+                        permuted_coord = (&)($(map(i -> :(parts(coord)[$i]), coord_idx)...))
+                    if Core._hasmethod( # https://discourse.julialang.org/t/method-lookup-in-generated-functions/138047/6
+                            Tuple{
+                                typeof(cmap_impl),
+                                typeof(permuted_system),
+                                typeof(permuted_coord),
+                                typeof(datum),
+                            }
+                        )
+                        return cmap(
+                            system,
+                            (&)(
+                                Coordinate(
+                                    permuted_system,
+                                    cmap_impl(permuted_system, permuted_coord, datum),
+                                ),
+                                $(remainder...),
+                            ),
+                        )
+                    end
+                end
+            end
+        )
+    end
+    push!(
+        result.args,
+        :(return nothing)
+    )
+    return result
+end
+
+"""
+    bump_system(system, coord, datum)
+
+Route the conversion via `lossy_parent(system)`, if possible. Returns `nothing`
+otherwise. 
+"""
+function bump_system(system::CoordinateSystem, coord::Coordinate, datum)
+    if (
+            !isnothing(lossy_parent(system))
+                && !is_ancestor(lossless_parent, system, coordinate_system(coord))
+                && !is_set_equal(parts(lossy_parent(system)), parts(coordinate_system(coord)))
+        )
+        return cmap(
+            system,
+            cmap(
+                lossy_parent(system),
+                coord,
+                datum,
+            ),
+            datum,
+        )
+    end
+    return nothing
+end
+
+"""
+    bump_coord(system, coord, datum)
+
+Route the conversion via `lossless_parent(coord)`, if possible. Returns `nothing`
+otherwise. 
+"""
+function bump_coord(system::CoordinateSystem, coord::Coordinate, datum)
+    if (
+            !isnothing(lossless_parent(coord))
+                && !is_ancestor(lossy_parent, coordinate_system(coord), system)
+                && !is_set_equal(parts(system), parts(lossless_parent(coord)))
+        )
+        return cmap(
+            system,
+            cmap(
+                lossless_parent(coord),
+                coord,
+                datum
+            ),
+            datum
+        )
+    end
+    return nothing
+end
+
+"""
+    is_ancestor(parent, sys1, sys2)
+
+Check whether `sys1` is an ancestor of `sys2` according to the `parent` relation. 
+
+See also [`lossy_parent`](@ref) and [`lossless_parent`](@ref).
+"""
+function is_ancestor(parent, sys1::CoordinateSystem, sys2::CoordinateSystem)
+    if issubset(parts(sys2), parts(sys1))
+        return true
+    end
+    if isnothing(parent(sys2))
+        return false
+    end
+    return is_ancestor(parent, sys1, parent(sys2))
+end
+is_ancestor(system::CoordinateSystem, coord::Coordinate) = is_ancestor(system, coordinate_system(coord))
 
 ################
 # Miscellaneous

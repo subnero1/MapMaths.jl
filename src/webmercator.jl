@@ -13,8 +13,8 @@ lossless_parent(::WmY) = Lat()
 
 ###
 
-cmap_impl(::WmX, (lon,)::Coordinate{Longitude}) = lon / 180
-cmap_impl(::Longitude, (wmx,)::Coordinate{WmX}) = 180 * wmx
+cmap_impl(::WmX, (lon,)::Coordinate{Longitude}, datum) = lon / 180
+cmap_impl(::Longitude, (wmx,)::Coordinate{WmX}, datum) = 180 * wmx
 
-cmap_impl(::WmY, (lat,)::Coordinate{GeodeticLatitude}) = log(tand((lat + 90) / 2)) / π
-cmap_impl(::GeodeticLatitude, (wmy,)::Coordinate{WmY}) = 2 * atand(exp(π * wmy)) - 90
+cmap_impl(::WmY, (lat,)::Coordinate{GeodeticLatitude}, datum) = log(tand((lat + 90) / 2)) / π
+cmap_impl(::GeodeticLatitude, (wmy,)::Coordinate{WmY}, datum) = 2 * atand(exp(π * wmy)) - 90

@@ -143,17 +143,17 @@ lossy_parent(::Range) = HorizontalRange() & Up()
 
 ###
 
-cmap_impl(::Azimuth, (east, north)::Coordinate{EastNorth}) = atand(east, north)
-cmap_impl(::HorizontalRange, (east, north)::Coordinate{EastNorth}) = hypot(east, north)
-cmap_impl(::HorizontalRange, (el, r)::Coordinate(Elevation() & Range())) = r * cosd(el)
-cmap_impl(::Up, (el, r)::Coordinate(Elevation() & Range())) = r * sind(el)
-cmap_impl(::Range, (east, north, up)::Coordinate{EastNorthUp}) = hypot(east, north, up)
-cmap_impl(::Range, (r, up)::Coordinate(HorizontalRange() & Up())) = hypot(r, up)
-cmap_impl(::Elevation, (r, up)::Coordinate(HorizontalRange() & Up())) = atand(up, r)
+cmap_impl(::Azimuth, (east, north)::Coordinate{EastNorth}, datum) = atand(east, north)
+cmap_impl(::HorizontalRange, (east, north)::Coordinate{EastNorth}, datum) = hypot(east, north)
+cmap_impl(::HorizontalRange, (el, r)::Coordinate(Elevation() & Range()), datum) = r * cosd(el)
+cmap_impl(::Up, (el, r)::Coordinate(Elevation() & Range()), datum) = r * sind(el)
+cmap_impl(::Range, (east, north, up)::Coordinate{EastNorthUp}, datum) = hypot(east, north, up)
+cmap_impl(::Range, (r, up)::Coordinate(HorizontalRange() & Up()), datum) = hypot(r, up)
+cmap_impl(::Elevation, (r, up)::Coordinate(HorizontalRange() & Up()), datum) = atand(up, r)
 
-cmap_impl(::EastNorth, (az, r)::Coordinate(Azimuth() & HorizontalRange())) = r .* sincosd(az)
+cmap_impl(::EastNorth, (az, r)::Coordinate(Azimuth() & HorizontalRange()), datum) = r .* sincosd(az)
 
-function cmap_impl(::EastNorthUp, (az, el, r)::Coordinate(Azimuth() & Elevation() & Range()))
+function cmap_impl(::EastNorthUp, (az, el, r)::Coordinate(Azimuth() & Elevation() & Range()), datum)
     sin_lon, cos_lon = sincosd(az)
     sin_lat, cos_lat = sincosd(el)
     return (
@@ -226,25 +226,18 @@ lossless_parent((sys, origin)::CoordinateSystemWithOrigin) = origin + @something
 
 lossless_parent(::CoordinateSystemWithOrigin{EastNorthUp}) = Cartesian()
 
-for (maybe_datum, maybe_datum_arg) in (
-        ((), ()),
-        ((:datum,), (:(datum::Datum),)),
-    )
-    @eval begin
-        function cmap(sys::CoordinateSystemWithOrigin, c::Coordinate{<:CoordinateSystemWithOrigin}, $(maybe_datum_arg...))
-            sys_out, origin_out = sys
-            sys_in, origin_in = coordinate_system(c)
-            if origin_out == origin_in
-                return origin_in + cmap(sys_out, Coordinate(sys_in, c...))
-            else
-                return cmap(sys, cmap(Cartesian(), c), $(maybe_datum...))
-            end
-        end
+function cmap(sys::CoordinateSystemWithOrigin, c::Coordinate{<:CoordinateSystemWithOrigin}, datum)
+    sys_out, origin_out = sys
+    sys_in, origin_in = coordinate_system(c)
+    if origin_out == origin_in
+        return origin_in + cmap(sys_out, Coordinate(sys_in, c...))
+    else
+        return cmap(sys, cmap(Cartesian(), c), datum)
     end
 end
 
-cmap_impl((_, origin)::CoordinateSystemWithOrigin{EastNorthUp}, c::Coordinate{Cartesian}) = Tuple(origin.ecef_from_enu' * (SVector(c...) - origin.origin))
-function cmap_impl(::Cartesian, c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}})
+cmap_impl((_, origin)::CoordinateSystemWithOrigin{EastNorthUp}, c::Coordinate{Cartesian}, datum) = Tuple(origin.ecef_from_enu' * (SVector(c...) - origin.origin))
+function cmap_impl(::Cartesian, c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}}, datum)
     _, origin = coordinate_system(c)
     return Tuple(origin.ecef_from_enu * SVector(c...) + origin.origin)
 end

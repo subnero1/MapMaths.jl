@@ -93,12 +93,12 @@ lossy_parent(::GeocentricAltitude) = GeocentricLatitude() & Radius()
 
 ###
 
-cmap_impl(::Longitude, (x, y)::Coordinate{CartesianXY}) = atand(y, x)
-cmap_impl(::CylindricalRadius, (x, y)::Coordinate{CartesianXY}) = hypot(x, y)
-cmap_impl(::CylindricalRadius, (lat, r)::Coordinate(GeocentricLatitude() & Radius())) = r * cosd(lat)
-cmap_impl(::CartesianZ, (lat, r)::Coordinate(GeocentricLatitude() & Radius())) = r * sind(lat)
-cmap_impl(::Radius, (x, y, z)::Coordinate{Cartesian}) = hypot(x, y, z)
-cmap_impl(::Radius, (r, z)::Coordinate(CylindricalRadius() & CartesianZ())) = hypot(r, z)
+cmap_impl(::Longitude, (x, y)::Coordinate{CartesianXY}, datum) = atand(y, x)
+cmap_impl(::CylindricalRadius, (x, y)::Coordinate{CartesianXY}, datum) = hypot(x, y)
+cmap_impl(::CylindricalRadius, (lat, r)::Coordinate(GeocentricLatitude() & Radius()), datum) = r * cosd(lat)
+cmap_impl(::CartesianZ, (lat, r)::Coordinate(GeocentricLatitude() & Radius()), datum) = r * sind(lat)
+cmap_impl(::Radius, (x, y, z)::Coordinate{Cartesian}, datum) = hypot(x, y, z)
+cmap_impl(::Radius, (r, z)::Coordinate(CylindricalRadius() & CartesianZ()), datum) = hypot(r, z)
 
 function cmap_impl(::Radius, (lat, alt)::Coordinate(GeocentricLatitude() & GeocentricAltitude()), datum)
     (s, c) = sincosd(lat)
@@ -106,7 +106,7 @@ function cmap_impl(::Radius, (lat, alt)::Coordinate(GeocentricLatitude() & Geoce
     return alt + sqrt((a * b)^2 / ((b * c)^2 + (a * s)^2))
 end
 
-cmap_impl(::GeocentricLatitude, (r, z)::Coordinate(CylindricalRadius() & CartesianZ())) = atand(z, r)
+cmap_impl(::GeocentricLatitude, (r, z)::Coordinate(CylindricalRadius() & CartesianZ()), datum) = atand(z, r)
 
 function cmap_impl(::GeocentricAltitude, (lat, r)::Coordinate(GeocentricLatitude() & Radius()), datum)
     (s, c) = sincosd(lat)
@@ -121,9 +121,9 @@ function cmap_impl(::typeof(GeocentricLatitude() & GeocentricAltitude()), c::Coo
     return (lat, alt)
 end
 
-cmap_impl(::CartesianXY, (lon, r)::Coordinate(Longitude() & CylindricalRadius())) = r .* reverse(sincosd(lon))
+cmap_impl(::CartesianXY, (lon, r)::Coordinate(Longitude() & CylindricalRadius()), datum) = r .* reverse(sincosd(lon))
 
-function cmap_impl(::Cartesian, (lon, lat, r)::Coordinate(Longitude() & GeocentricLatitude() & Radius()))
+function cmap_impl(::Cartesian, (lon, lat, r)::Coordinate(Longitude() & GeocentricLatitude() & Radius()), datum)
     sin_lon, cos_lon = sincosd(lon)
     sin_lat, cos_lat = sincosd(lat)
     return (
