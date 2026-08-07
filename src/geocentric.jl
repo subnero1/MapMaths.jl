@@ -93,10 +93,10 @@ lossy_parent(::GeocentricAltitude) = GeocentricLatitude() & Radius()
 ###
 
 cmap_impl(::Longitude, (x, y)::Coordinate{CartesianXY}, datum) = atand(y, x)
-cmap_impl(::CylindricalRadius, (x, y)::Coordinate{CartesianXY}, datum) = hypot(x, y)
+cmap_impl(::CylindricalRadius, (x, y)::Coordinate{CartesianXY}, datum) = sqrt(x^2 + y^2)
 cmap_impl(::CylindricalRadius, (lat, r)::Coordinate(GeocentricLatitude() & Radius()), datum) = r * cosd(lat)
 cmap_impl(::CartesianZ, (lat, r)::Coordinate(GeocentricLatitude() & Radius()), datum) = r * sind(lat)
-cmap_impl(::Radius, (x, y, z)::Coordinate{Cartesian}, datum) = hypot(x, y, z)
+cmap_impl(::Radius, (x, y, z)::Coordinate{Cartesian}, datum) = sqrt(x^2 + y^2 + z^2)
 cmap_impl(::Radius, (r, z)::Coordinate(CylindricalRadius() & CartesianZ()), datum) = sqrt(r^2 + z^2)
 
 function cmap_impl(::Radius, (lat, alt)::Coordinate(GeocentricLatitude() & GeocentricAltitude()), datum)

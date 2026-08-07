@@ -144,11 +144,11 @@ lossy_parent(::Range) = HorizontalRange() & Up()
 ###
 
 cmap_impl(::Azimuth, (east, north)::Coordinate{EastNorth}, datum) = atand(east, north)
-cmap_impl(::HorizontalRange, (east, north)::Coordinate{EastNorth}, datum) = hypot(east, north)
+cmap_impl(::HorizontalRange, (east, north)::Coordinate{EastNorth}, datum) = sqrt(east^2 + north^2)
 cmap_impl(::HorizontalRange, (el, r)::Coordinate(Elevation() & Range()), datum) = r * cosd(el)
 cmap_impl(::Up, (el, r)::Coordinate(Elevation() & Range()), datum) = r * sind(el)
-cmap_impl(::Range, (east, north, up)::Coordinate{EastNorthUp}, datum) = hypot(east, north, up)
-cmap_impl(::Range, (r, up)::Coordinate(HorizontalRange() & Up()), datum) = hypot(r, up)
+cmap_impl(::Range, (east, north, up)::Coordinate{EastNorthUp}, datum) = sqrt(east^2 + north^2 + up^2)
+cmap_impl(::Range, (r, up)::Coordinate(HorizontalRange() & Up()), datum) = sqrt(r^2 + up^2)
 cmap_impl(::Elevation, (r, up)::Coordinate(HorizontalRange() & Up()), datum) = atand(up, r)
 
 cmap_impl(::East, (az, r)::Coordinate(Azimuth() & HorizontalRange()), datum) = r * sind(az)
