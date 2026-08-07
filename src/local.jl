@@ -151,6 +151,8 @@ cmap_impl(::Range, (east, north, up)::Coordinate{EastNorthUp}, datum) = hypot(ea
 cmap_impl(::Range, (r, up)::Coordinate(HorizontalRange() & Up()), datum) = hypot(r, up)
 cmap_impl(::Elevation, (r, up)::Coordinate(HorizontalRange() & Up()), datum) = atand(up, r)
 
+cmap_impl(::East, (az, r)::Coordinate(Azimuth() & HorizontalRange()), datum) = r * sind(az)
+cmap_impl(::North, (az, r)::Coordinate(Azimuth() & HorizontalRange()), datum) = r * cosd(az)
 cmap_impl(::EastNorth, (az, r)::Coordinate(Azimuth() & HorizontalRange()), datum) = r .* sincosd(az)
 
 function cmap_impl(::EastNorthUp, (az, el, r)::Coordinate(Azimuth() & Elevation() & Range()), datum)
@@ -237,6 +239,31 @@ function cmap(sys::CoordinateSystemWithOrigin, c::Coordinate{<:CoordinateSystemW
 end
 
 cmap_impl((_, origin)::CoordinateSystemWithOrigin{EastNorthUp}, c::Coordinate{Cartesian}, datum) = Tuple(origin.ecef_from_enu' * (SVector(c...) - origin.origin))
+
+function cmap_impl(::CartesianX, c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}}, datum)
+    _, origin = coordinate_system(c)
+    return origin.ecef_from_enu[1, :]' * SVector(c...) + origin.origin[1]
+end
+function cmap_impl(::CartesianY, c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}}, datum)
+    _, origin = coordinate_system(c)
+    return origin.ecef_from_enu[2, :]' * SVector(c...) + origin.origin[2]
+end
+function cmap_impl(::CartesianZ, c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}}, datum)
+    _, origin = coordinate_system(c)
+    return origin.ecef_from_enu[3, :]' * SVector(c...) + origin.origin[3]
+end
+function cmap_impl(::CartesianXY, c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}}, datum)
+    _, origin = coordinate_system(c)
+    return Tuple(origin.ecef_from_enu[SVector(1, 2), :] * SVector(c...) + origin.origin[SVector(1, 2)])
+end
+function cmap_impl(::typeof(CartesianX() & CartesianZ()), c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}}, datum)
+    _, origin = coordinate_system(c)
+    return Tuple(origin.ecef_from_enu[SVector(1, 3), :] * SVector(c...) + origin.origin[SVector(1, 3)])
+end
+function cmap_impl(::typeof(CartesianY() & CartesianZ()), c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}}, datum)
+    _, origin = coordinate_system(c)
+    return Tuple(origin.ecef_from_enu[SVector(2, 3), :] * SVector(c...) + origin.origin[SVector(2, 3)])
+end
 function cmap_impl(::Cartesian, c::Coordinate{<:CoordinateSystemWithOrigin{EastNorthUp}}, datum)
     _, origin = coordinate_system(c)
     return Tuple(origin.ecef_from_enu * SVector(c...) + origin.origin)

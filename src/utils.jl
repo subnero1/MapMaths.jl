@@ -68,6 +68,14 @@ alternative to `issetequal(a, b)`.
 """
 is_set_equal(a::Tuple, b::Tuple) = length(a) == length(b) && all(x -> x in b, a)
 
+"""
+    is_subset(a::Tuple, b::Tuple)
+
+Determine whether every element of `a` is also in `b`, using `in`.
+Loop-free alternative to `issubset(a, b)`.
+"""
+is_subset(a::Tuple, b::Tuple) = first(a) in b && is_subset(Base.tail(a), b)
+is_subset(a::NTuple{1}, b::Tuple) = only(a) in b
 
 """
     flatten(x::Tuple) -> Tuple

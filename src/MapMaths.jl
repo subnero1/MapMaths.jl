@@ -360,9 +360,9 @@ Coordinate(Longitude(), 90.0)
 function cmap(system::CoordinateSystem, coord::Coordinate, datum = NoDatum())
     return @something(
         permute_coords(system, coord),
-        apply_cmap_impl(system, coord, datum),
         bump_system(system, coord, datum),
         bump_coord(system, coord, datum),
+        apply_cmap_impl(system, coord, datum),
         error("Cannot convert from $(coordinate_system(coord)) to $system. Please raise an issue if you think this is a bug.")
     )
 end
@@ -472,7 +472,7 @@ function bump_system(system::CoordinateSystem, coord::Coordinate, datum)
     if (
             !isnothing(lossy_parent(system))
                 && !is_ancestor(lossless_parent, system, coordinate_system(coord))
-                && !is_set_equal(parts(lossy_parent(system)), parts(coordinate_system(coord)))
+                && !is_subset(parts(lossy_parent(system)), parts(coordinate_system(coord)))
         )
         return cmap(
             system,
@@ -496,13 +496,17 @@ otherwise.
 function bump_coord(system::CoordinateSystem, coord::Coordinate, datum)
     if (
             !isnothing(lossless_parent(coord))
-                && !is_ancestor(lossy_parent, coordinate_system(coord), system)
-                && !is_set_equal(parts(system), parts(lossless_parent(coord)))
+                && !is_subset(parts(system), parts(lossless_parent(coord)))
+                && !any(
+                x -> !isnothing(lossy_parent(x))
+                    && is_subset(parts(lossy_parent(x)), parts(coordinate_system(coord))),
+                parts(system),
+            )
         )
         return cmap(
             system,
             cmap(
-                lossless_parent(coord),
+                minimize_descendant(system, lossless_parent(coord)),
                 coord,
                 datum
             ),
@@ -510,6 +514,28 @@ function bump_coord(system::CoordinateSystem, coord::Coordinate, datum)
         )
     end
     return nothing
+end
+
+@generated function minimize_descendant(ancestor, descendant)
+    result = Expr(:block)
+    for n in 1:n_parts(descendant),
+            idx in combinations(1:n_parts(descendant), n)
+        push!(
+            result.args,
+            quote
+                let reduced_descendant = (&)($(map(i -> :(parts(descendant)[$i]), idx)...))
+                    if is_ancestor(lossless_parent, ancestor, reduced_descendant)
+                        return reduced_descendant
+                    end
+                end
+            end
+        )
+    end
+    push!(
+        result.args,
+        :(return descendant)
+    )
+    return result
 end
 
 """
@@ -520,7 +546,7 @@ Check whether `sys1` is an ancestor of `sys2` according to the `parent` relation
 See also [`lossy_parent`](@ref) and [`lossless_parent`](@ref).
 """
 function is_ancestor(parent, sys1::CoordinateSystem, sys2::CoordinateSystem)
-    if issubset(parts(sys2), parts(sys1))
+    if is_subset(parts(sys1), parts(sys2))
         return true
     end
     if isnothing(parent(sys2))

@@ -57,7 +57,7 @@ lossy_parent(::Alt) = CylindricalRadius() & CartesianZ()
 
 @symmetric lossy_parent(::Lon, ::Lat) = Cylindrical()
 @symmetric lossy_parent(::Lon, ::Alt) = Cylindrical()
-@symmetric lossy_parent(::Lat, ::Alt) = CylindricalRadius() & CartesianZ()
+@symmetric lossless_parent(::Lat, ::Alt) = CylindricalRadius() & CartesianZ()
 
 @symmetric lossless_parent(::Lon, ::Lat, ::Alt) = Cylindrical()
 
