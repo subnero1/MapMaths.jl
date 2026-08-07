@@ -64,31 +64,19 @@ lossy_parent(::Alt) = CylindricalRadius() & CartesianZ()
 ########################
 # Cartesian from LonLat
 
-function cmap_impl(
-        ::CylindricalRadius,
-        (lat, alt)::Coordinate{LatAlt},
-        datum,
-    )
+function cmap_impl(::CylindricalRadius, (lat, alt)::Coordinate{LatAlt}, datum)
     sin_lat, cos_lat = sincosd(lat)
     prime_vertical = datum[SemiMajorAxis] / sqrt(1 - datum[SquaredEccentricity] * sin_lat^2)
     return (prime_vertical + alt) * cos_lat
 end
 
-function cmap_impl(
-        ::CartesianZ,
-        (lat, alt)::Coordinate{LatAlt},
-        datum,
-    )
+function cmap_impl(::CartesianZ, (lat, alt)::Coordinate{LatAlt}, datum)
     sin_lat = sind(lat)
     prime_vertical = datum[SemiMajorAxis] / sqrt(1 - datum[SquaredEccentricity] * sin_lat^2)
     return ((1 - datum[SquaredEccentricity]) * prime_vertical + alt) * sin_lat
 end
 
-function cmap_impl(
-        ::typeof(CylindricalRadius() & CartesianZ()),
-        (lat, alt)::Coordinate{LatAlt},
-        datum,
-    )
+function cmap_impl(::typeof(CylindricalRadius() & CartesianZ()), (lat, alt)::Coordinate{LatAlt}, datum)
     sin_lat, cos_lat = sincosd(lat)
     prime_vertical = datum[SemiMajorAxis] / sqrt(1 - datum[SquaredEccentricity] * sin_lat^2)
     return (
@@ -119,7 +107,6 @@ function cmap_impl(::typeof(GeodeticAltitude()), (p, z)::Coordinate(CylindricalR
     else
         z / sin_lat - prime_vertical * (1 - datum[SquaredEccentricity])
     end
-    # return (p + abs(z) - prime_vertical * (cos_lat + (1 - datum[SquaredEccentricity]) * abs(sin_lat))) / (cos_lat + abs(sin_lat))
 end
 
 function cmap_impl(::typeof(GeodeticLatitude() & GeodeticAltitude()), (p, z)::Coordinate(CylindricalRadius() & CartesianZ()), datum)
