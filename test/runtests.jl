@@ -3,6 +3,7 @@ using Test
 using Documenter
 using Combinatorics
 using StaticArrays
+using Logging
 
 function test_oneway_cmap(input, output, maybe_datum...; atol = 0, rtol = 0)
     for n in 1:MapMaths.n_parts(output)
@@ -29,7 +30,9 @@ DocMeta.setdocmeta!(
     end;
     recursive = true,
 )
-doctest(MapMaths; manual = false)
+with_logger(ConsoleLogger(stderr, Logging.Error)) do
+    doctest(MapMaths; manual = false, testset = "doctests")
+end
 
 @testset "geocentric" begin
     test_cmap(Coordinate(Cylindrical(), 0, 1, 2), Coordinate(Cartesian(), 1, 0, 2))
