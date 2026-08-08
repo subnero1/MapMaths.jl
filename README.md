@@ -1,6 +1,6 @@
 # MapMaths.jl
 
-Fast and flexible coordinate conversions for Julia.
+Fast and flexible coordinate transformations for Julia.
 
 **WARNING:** This package is currently in an experimental phase. See [below](#history-outlook--alternatives) for details.
 
