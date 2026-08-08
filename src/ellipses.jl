@@ -203,7 +203,7 @@ function unnormalized_normal(ellipse::Ellipse, (p, z))
     C = ec^2 * P # Paper says ec * P, but ec^2 * P is correct
 
     # TODO: Iterate to achieve machine precision?
-    A = hypot(S, C)
+    A = sqrt(S^2 + C^2)
     B = 1.5 * E^2 * P * (S * C)^2 * (A - ec)
     D = Z * A^3 + E * S^3
     F = P * A^3 - E * C^3
