@@ -9,6 +9,7 @@ struct WmY <: ScalarCoordinateSystem end
 lossless_parent(::WmX) = Lon()
 lossless_parent(::WmY) = Lat()
 @symmetric lossless_parent(::WmX, ::WmY) = LonLat()
+@symmetric lossless_parent(::WmY, ::Alt) = LatAlt()
 @symmetric lossless_parent(::WmX, ::WmY, ::Alt) = LonLatAlt()
 
 ###
