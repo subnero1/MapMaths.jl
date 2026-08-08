@@ -1,6 +1,6 @@
 name = "MapMaths"
 uuid = "0922fada-4501-4821-9da5-5833bcb2b8d4"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Simon Etter <ettersi@users.noreply.github.com>"]
 
 [deps]
